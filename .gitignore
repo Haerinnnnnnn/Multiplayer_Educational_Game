@@ -69,3 +69,4 @@ Thumbs.db
 
 # Local generated files
 doc_analysis_render/
+backend/src/server.js
