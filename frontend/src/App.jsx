@@ -1794,12 +1794,6 @@ export default function App() {
       return;
     }
 
-    const confirmed = window.confirm('Leave this waiting room?');
-
-    if (!confirmed) {
-      return;
-    }
-
     try {
       await leaveDatabaseSession({
         sessionId: studentSession.id,

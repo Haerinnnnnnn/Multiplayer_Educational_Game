@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient.js';
+import { backendUrl } from './apiConfig.js';
 
 function toStudentUser(student) {
   return {
@@ -151,32 +152,40 @@ async function createTeacher(user, profile) {
   return toTeacherUser(data);
 }
 
-async function createAuthUser(profile) {
-  const { data, error } = await supabase.auth.signUp({
-    email: profile.email.trim().toLowerCase(),
-    password: profile.password,
+async function registerAccount(profile, role) {
+  const response = await fetch(`${backendUrl}/api/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      role,
+      email: profile.email.trim().toLowerCase(),
+      password: profile.password,
+      name: profile.name.trim(),
+      birthday: profile.birthday,
+      schoolName: profile.schoolName.trim(),
+      grade: profile.grade?.trim() || '',
+      course: profile.course?.trim() || '',
+    }),
   });
 
-  if (error) {
-    throw new Error(error.message);
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Registration failed.');
   }
 
-  if (!data.user) {
-    throw new Error('Registration failed. No auth user returned.');
-  }
-
-  return data.user;
+  return result.user;
 }
 
 export async function registerStudent(profile) {
-  const authUser = await createAuthUser(profile);
-  const user = await createStudent(authUser, profile);
+  const user = await registerAccount(profile, 'student');
   return { user };
 }
 
 export async function registerTeacher(profile) {
-  const authUser = await createAuthUser(profile);
-  const user = await createTeacher(authUser, profile);
+  const user = await registerAccount(profile, 'teacher');
   return { user };
 }
 

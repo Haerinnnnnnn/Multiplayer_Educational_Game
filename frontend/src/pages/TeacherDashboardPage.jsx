@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BrandLogo } from '../components/BrandLogo.jsx';
 import { ChangePasswordForm } from '../components/ChangePasswordForm.jsx';
 import { DashboardBackground } from '../components/DashboardBackground.jsx';
@@ -895,6 +896,9 @@ function QuestionsTab({
   selectedModuleId,
 }) {
   const [importRows, setImportRows] = useState([]);
+  const [selectedImportRowIds, setSelectedImportRowIds] = useState([]);
+  const [showImportDeleteConfirm, setShowImportDeleteConfirm] = useState(false);
+  const [deletingSelectedImportRows, setDeletingSelectedImportRows] = useState(false);
   const [importError, setImportError] = useState('');
   const [importing, setImporting] = useState(false);
 
@@ -904,10 +908,15 @@ function QuestionsTab({
 
   const validImportRows = importRows.filter((row) => row.errors.length === 0);
   const invalidImportRows = importRows.length - validImportRows.length;
+  const selectedImportRowCount = selectedImportRowIds.length;
+  const allImportRowsSelected =
+    importRows.length > 0 && selectedImportRowCount === importRows.length;
 
   async function handleImportFile(event) {
     const file = event.target.files?.[0];
     setImportRows([]);
+    setSelectedImportRowIds([]);
+    setShowImportDeleteConfirm(false);
     setImportError('');
 
     if (!file) {
@@ -936,6 +945,8 @@ function QuestionsTab({
 
     if (success) {
       setImportRows([]);
+      setSelectedImportRowIds([]);
+      setShowImportDeleteConfirm(false);
       setImportError('');
     }
   }
@@ -962,6 +973,43 @@ function QuestionsTab({
 
   function deleteImportRow(importId) {
     setImportRows((currentRows) => currentRows.filter((row) => row.importId !== importId));
+    setSelectedImportRowIds((currentIds) => currentIds.filter((id) => id !== importId));
+  }
+
+  function toggleImportRowSelection(importId) {
+    setSelectedImportRowIds((currentIds) =>
+      currentIds.includes(importId)
+        ? currentIds.filter((id) => id !== importId)
+        : [...currentIds, importId],
+    );
+  }
+
+  function toggleAllImportRows() {
+    setSelectedImportRowIds(allImportRowsSelected ? [] : importRows.map((row) => row.importId));
+  }
+
+  function selectValidImportRows() {
+    setSelectedImportRowIds(validImportRows.map((row) => row.importId));
+  }
+
+  function requestDeleteSelectedImportRows() {
+    if (!selectedImportRowCount) {
+      return;
+    }
+
+    setShowImportDeleteConfirm(true);
+  }
+
+  function confirmDeleteSelectedImportRows() {
+    const selectedIds = new Set(selectedImportRowIds);
+    setShowImportDeleteConfirm(false);
+    setDeletingSelectedImportRows(true);
+
+    window.setTimeout(() => {
+      setImportRows((currentRows) => currentRows.filter((row) => !selectedIds.has(row.importId)));
+      setSelectedImportRowIds([]);
+      setDeletingSelectedImportRows(false);
+    }, 650);
   }
 
   return (
@@ -1116,10 +1164,46 @@ function QuestionsTab({
               <strong>{validImportRows.length} valid</strong>
               <span>{invalidImportRows} need fixing</span>
             </div>
+            <div className="import-bulk-toolbar">
+              <div>
+                <strong>{selectedImportRowCount}</strong>
+                <span> selected</span>
+              </div>
+              <div className="import-bulk-actions">
+                <button className="secondary-button" type="button" onClick={toggleAllImportRows}>
+                  {allImportRowsSelected ? 'Clear Selection' : 'Select All'}
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={selectValidImportRows}
+                  disabled={!validImportRows.length}
+                >
+                  Select Valid
+                </button>
+                <button
+                  className="secondary-button danger-button"
+                  type="button"
+                  onClick={requestDeleteSelectedImportRows}
+                  disabled={deletingSelectedImportRows || !selectedImportRowCount}
+                >
+                  Delete Selected
+                </button>
+              </div>
+            </div>
             <div className="table-panel import-preview-table">
               <table>
                 <thead>
                   <tr>
+                    <th className="import-select-cell">
+                      <input
+                        aria-label="Select all imported questions"
+                        checked={allImportRowsSelected}
+                        className="import-checkbox"
+                        type="checkbox"
+                        onChange={toggleAllImportRows}
+                      />
+                    </th>
                     <th>Row</th>
                     <th>Question</th>
                     <th>A</th>
@@ -1135,6 +1219,15 @@ function QuestionsTab({
                 <tbody>
                   {importRows.map((row) => (
                     <tr key={row.importId}>
+                      <td className="import-select-cell">
+                        <input
+                          aria-label={`Select imported row ${row.importId}`}
+                          checked={selectedImportRowIds.includes(row.importId)}
+                          className="import-checkbox"
+                          type="checkbox"
+                          onChange={() => toggleImportRowSelection(row.importId)}
+                        />
+                      </td>
                       <td>{row.importId}</td>
                       <td>
                         <textarea
@@ -1238,6 +1331,8 @@ function QuestionsTab({
                 type="button"
                 onClick={() => {
                   setImportRows([]);
+                  setSelectedImportRowIds([]);
+                  setShowImportDeleteConfirm(false);
                   setImportError('');
                 }}
               >
@@ -1247,6 +1342,59 @@ function QuestionsTab({
           </>
         )}
       </section>
+
+      {showImportDeleteConfirm &&
+        createPortal(
+          <div
+            className="modal-backdrop import-delete-backdrop"
+            role="presentation"
+            onClick={() => setShowImportDeleteConfirm(false)}
+          >
+            <section
+              aria-modal="true"
+              className="review-message-modal import-delete-modal"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <p className="eyebrow">Confirm Delete</p>
+              <h2>Delete Selected Questions?</h2>
+              <p>
+                Are you sure you want to delete {selectedImportRowCount} selected imported
+                question{selectedImportRowCount === 1 ? '' : 's'} from this preview?
+              </p>
+              <div className="button-row">
+                <button
+                  className="secondary-button danger-button"
+                  type="button"
+                  onClick={confirmDeleteSelectedImportRows}
+                >
+                  Yes, Delete
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setShowImportDeleteConfirm(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {deletingSelectedImportRows &&
+        createPortal(
+          <div className="modal-backdrop import-delete-backdrop" role="presentation">
+            <section className="review-message-modal import-delete-modal import-delete-loading" role="status">
+              <div className="logout-spinner" aria-hidden="true" />
+              <p className="eyebrow">Updating Preview</p>
+              <h2>Deleting Selected Questions</h2>
+              <p>Please wait while the selected Excel rows are removed.</p>
+            </section>
+          </div>,
+          document.body,
+        )}
 
       <Feedback text={feedback} />
 

@@ -1,24 +1,28 @@
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig(({ mode }) => ({
-  plugins: [react(), ...(mode === 'https' ? [basicSsl()] : [])],
-  server: {
-    host: '0.0.0.0',
-    proxy:
-      ['https', 'tunnel'].includes(mode)
+function isLocalBackend(url = '') {
+  return url.includes('127.0.0.1') || url.includes('localhost') || url.includes('192.168.');
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const backendUrl = env.VITE_BACKEND_URL || 'http://127.0.0.1:3000';
+  const useApiProxy = ['https', 'tunnel'].includes(mode) && isLocalBackend(backendUrl);
+
+  return {
+    plugins: [react(), ...(mode === 'https' ? [basicSsl()] : [])],
+    server: {
+      host: '0.0.0.0',
+      proxy: useApiProxy
         ? {
             '/api': {
-              target: 'http://127.0.0.1:3000',
+              target: backendUrl,
               changeOrigin: true,
-            },
-            '/supabase': {
-              target: 'http://127.0.0.1:54321',
-              changeOrigin: true,
-              rewrite: (path) => path.replace(/^\/supabase/, ''),
             },
           }
         : undefined,
-  },
-}));
+    },
+  };
+});

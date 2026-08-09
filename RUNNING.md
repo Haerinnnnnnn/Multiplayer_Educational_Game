@@ -1,12 +1,12 @@
-# Run The System
+# Run O bits
 
-This project now uses the online Supabase project for Auth and PostgreSQL.
+This version uses **online Supabase** for Auth and PostgreSQL. You only need to run the local backend and frontend.
 
 Open **2 terminals**.
 
 ## Before Running
 
-Make sure these local environment files exist.
+Check these files exist.
 
 ### Backend
 
@@ -28,11 +28,13 @@ VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
 VITE_BACKEND_URL=http://localhost:3000
 ```
 
-If you access the frontend from another device on the same WiFi, change `VITE_BACKEND_URL` to your computer IP, for example:
+For phone/iPad testing on the same WiFi, use your laptop IP for the backend:
 
 ```env
 VITE_BACKEND_URL=http://192.168.100.6:3000
 ```
+
+Replace `192.168.100.6` with your own IPv4 address.
 
 ## Terminal 1: Backend
 
@@ -42,13 +44,13 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-Backend check:
+Backend test:
 
 ```txt
 http://localhost:3000/api/health
 ```
 
-If using another device on the same WiFi:
+Phone/iPad backend test:
 
 ```txt
 http://192.168.100.6:3000/api/health
@@ -56,7 +58,7 @@ http://192.168.100.6:3000/api/health
 
 ## Terminal 2: Frontend
 
-Use normal Vite mode when connecting to the online Supabase project:
+The normal frontend command now runs HTTPS on port `5174`.
 
 ```powershell
 cd "D:\Document\GitHub\Multiplayer_Educational_Game\frontend"
@@ -67,37 +69,59 @@ npm.cmd run dev
 Open on laptop:
 
 ```txt
-http://localhost:5173
+https://localhost:5174
 ```
 
-If Vite says port `5173` is used and switches to another port like `5174`, use the port shown in the frontend terminal.
-
-## Phone / iPad Testing
-
-If testing from a phone or iPad on the same WiFi, run the frontend with host mode:
-
-```powershell
-cd "D:\Document\GitHub\Multiplayer_Educational_Game\frontend"
-npm.cmd run dev:host
-```
-
-Open:
+Open on phone/iPad:
 
 ```txt
-http://192.168.100.6:5173
+https://192.168.100.6:5174
 ```
 
-Replace `192.168.100.6` with your computer IP address.
+Accept the browser security warning for the local HTTPS certificate.
 
-## HTTPS Camera Testing
+## Camera Testing
 
-`npm.cmd run dev:https` is mainly for camera testing.
+Use the HTTPS link for QR scanning:
 
-Important: in the current frontend config, HTTPS mode proxies Supabase requests to local Docker Supabase at `127.0.0.1:54321`. Use normal `npm.cmd run dev` or `npm.cmd run dev:host` when testing the online Supabase project.
+```txt
+https://localhost:5174
+https://YOUR_IPV4:5174
+```
+
+Do not use the HTTP link for phone/iPad camera testing.
+
+## If Port 5174 Is Already Used
+
+Find the process:
+
+```powershell
+netstat -ano | Select-String ":5174"
+```
+
+Stop the process by replacing `PID_NUMBER`:
+
+```powershell
+taskkill /PID PID_NUMBER /F
+```
+
+Then start frontend again:
+
+```powershell
+npm.cmd run dev
+```
+
+## Optional HTTP Debug Mode
+
+Only use this if you do not need camera scanning:
+
+```powershell
+npm.cmd run dev:http
+```
 
 ## Supabase Schema Updates
 
-When you add new migration files under `supabase/migrations`, push them to the online Supabase project from the repo root:
+When you add new migration files:
 
 ```powershell
 cd "D:\Document\GitHub\Multiplayer_Educational_Game"

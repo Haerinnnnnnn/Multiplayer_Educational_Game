@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GameRulesHowItWorks } from '../components/GameRulesHowItWorks.jsx';
 import { AppFrame } from '../components/Layout.jsx';
+import { GlassButton } from '../components/ui/GlassButton.jsx';
 
 function getGameTypeLabel(gameType) {
   return gameType === 'qr_pair_match' ? 'QR Pair Match' : 'Classic MCQ';
@@ -12,6 +14,7 @@ export function StudentWaitingPage({
   student,
 }) {
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const gameTypeLabel = getGameTypeLabel(currentSession?.gameType);
   const gameType = useMemo(
     () => currentSession?.gameType || 'classic_mcq',
@@ -19,7 +22,7 @@ export function StudentWaitingPage({
   );
 
   return (
-    <AppFrame homeLabel="Leave Session" title="Waiting Room" onHome={onLeaveSession}>
+    <AppFrame homeLabel="Leave Session" title="Waiting Room" onHome={() => setLeaveConfirmOpen(true)}>
       <section className="panel waiting-panel">
         <p className="eyebrow">Joined</p>
         <h2>{student?.name}</h2>
@@ -55,6 +58,50 @@ export function StudentWaitingPage({
           </section>
         </div>
       )}
+
+      {leaveConfirmOpen &&
+        createPortal(
+          <div
+            className="modal-backdrop waiting-leave-backdrop"
+            role="presentation"
+            onClick={() => setLeaveConfirmOpen(false)}
+          >
+            <section
+              aria-modal="true"
+              className="review-message-modal waiting-leave-modal"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <p className="eyebrow">Leave Session</p>
+              <div className="waiting-leave-icon" aria-hidden="true">!</div>
+              <h2>Leave This Waiting Room?</h2>
+              <p>
+                You will be removed from session {currentSession?.code || ''} and returned to the
+                student dashboard.
+              </p>
+              <div className="button-row">
+                <GlassButton
+                  className="waiting-leave-glass-button danger"
+                  type="button"
+                  onClick={() => {
+                    setLeaveConfirmOpen(false);
+                    onLeaveSession();
+                  }}
+                >
+                  Yes, Leave
+                </GlassButton>
+                <GlassButton
+                  className="waiting-leave-glass-button neutral"
+                  type="button"
+                  onClick={() => setLeaveConfirmOpen(false)}
+                >
+                  Stay
+                </GlassButton>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
     </AppFrame>
   );
 }

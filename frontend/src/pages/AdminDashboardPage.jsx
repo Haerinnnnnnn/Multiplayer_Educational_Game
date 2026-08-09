@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BrandLogo } from '../components/BrandLogo.jsx';
 import { DashboardBackground } from '../components/DashboardBackground.jsx';
 import { EmptyState, Feedback, Stat } from '../components/Common.jsx';
@@ -540,8 +541,8 @@ function ModuleInfoModal({ info, loading, error, module, onClose }) {
     email: displayModule?.teacherEmail,
   };
 
-  return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+  return createPortal(
+    <div className="modal-backdrop admin-module-info-backdrop" role="presentation" onClick={onClose}>
       <section
         aria-labelledby="module-info-title"
         aria-modal="true"
@@ -697,7 +698,8 @@ function ModuleInfoModal({ info, loading, error, module, onClose }) {
           </div>
         )}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
