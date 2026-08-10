@@ -9,6 +9,7 @@ function isLocalBackend(url = '') {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const backendUrl = env.VITE_BACKEND_URL || 'http://127.0.0.1:3000';
+  const proxyTarget = 'http://127.0.0.1:3000';
   const useApiProxy = ['https', 'tunnel'].includes(mode) && isLocalBackend(backendUrl);
 
   return {
@@ -18,7 +19,7 @@ export default defineConfig(({ mode }) => {
       proxy: useApiProxy
         ? {
             '/api': {
-              target: backendUrl,
+              target: proxyTarget,
               changeOrigin: true,
             },
           }
