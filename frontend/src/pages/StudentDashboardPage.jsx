@@ -11,6 +11,7 @@ import {
 } from '../services/moduleAccessService.js';
 import { getLevelProgress } from '../services/experienceService.js';
 import { fetchStudentActivity } from '../services/studentActivityService.js';
+import { fetchStudentSessionNotifications } from '../services/studentNotificationService.js';
 
 function formatDate(value) {
   if (!value) {
@@ -114,6 +115,70 @@ function StudentHome({ joinedModules, student, onJoinSession, onOpenModules }) {
         </dl>
       </div>
     </section>
+  );
+}
+
+function getDismissedNotificationIds(studentId) {
+  if (!studentId) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(window.localStorage.getItem(`obitz-student-notifications-dismissed-${studentId}`) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveDismissedNotificationIds(studentId, ids) {
+  if (!studentId) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    `obitz-student-notifications-dismissed-${studentId}`,
+    JSON.stringify([...new Set(ids)]),
+  );
+}
+
+function StudentNotificationList({ compact = false, notifications, onDismiss, onJoin }) {
+  if (!notifications.length) {
+    return (
+      <div className={compact ? 'student-notification-empty compact' : 'student-notification-empty'}>
+        No live session notifications now.
+      </div>
+    );
+  }
+
+  return (
+    <div className={compact ? 'student-notification-list compact' : 'student-notification-list'}>
+      {notifications.map((notification) => (
+        <article className="student-notification-card" key={notification.id}>
+          <div>
+            <p className="eyebrow">{notification.moduleCode} · {notification.gameTypeLabel}</p>
+            <h3>{notification.moduleTitle}</h3>
+            <p>{notification.message}</p>
+            <small>Session {notification.sessionCode} · {formatDate(notification.createdAt)}</small>
+          </div>
+          <div className="student-notification-actions">
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => onJoin(notification)}
+            >
+              Join
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => onDismiss(notification.id)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -372,8 +437,17 @@ export function StudentDashboardPage({
   const [moduleError, setModuleError] = useState('');
   const [loadingModules, setLoadingModules] = useState(false);
   const [moduleFeedback, setModuleFeedback] = useState('');
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState(() =>
+    getDismissedNotificationIds(student?.id),
+  );
 
   const studentInitial = useMemo(() => getInitial(student?.name), [student?.name]);
+  const visibleNotifications = useMemo(
+    () => notifications.filter((notification) => !dismissedNotificationIds.includes(notification.id)),
+    [dismissedNotificationIds, notifications],
+  );
 
   useEffect(() => {
     window.requestAnimationFrame(() => {
@@ -442,6 +516,52 @@ export function StudentDashboardPage({
     loadStudentModules();
   }, [activeTab, student?.id]);
 
+  useEffect(() => {
+    setDismissedNotificationIds(getDismissedNotificationIds(student?.id));
+  }, [student?.id]);
+
+  useEffect(() => {
+    if (!student?.id) {
+      return undefined;
+    }
+
+    let active = true;
+
+    async function loadNotifications({ quiet = false } = {}) {
+      try {
+        const data = await fetchStudentSessionNotifications(student.id);
+
+        if (active) {
+          setNotifications(data);
+        }
+      } catch (error) {
+        if (!quiet && active) {
+          setModuleFeedback(error.message);
+        }
+      }
+    }
+
+    loadNotifications();
+    const refreshTimer = window.setInterval(() => loadNotifications({ quiet: true }), 8000);
+
+    return () => {
+      active = false;
+      window.clearInterval(refreshTimer);
+    };
+  }, [student?.id]);
+
+  function dismissNotification(notificationId) {
+    const nextIds = [...dismissedNotificationIds, notificationId];
+    setDismissedNotificationIds(nextIds);
+    saveDismissedNotificationIds(student?.id, nextIds);
+  }
+
+  function joinFromNotification(notification) {
+    setNotificationOpen(false);
+    setMenuOpen(false);
+    onJoinSession(notification.sessionCode);
+  }
+
   async function joinModule(moduleId) {
     setModuleFeedback('');
 
@@ -509,14 +629,49 @@ export function StudentDashboardPage({
 
         <div className="student-avatar-area">
           <button
+            className={visibleNotifications.length ? 'student-notification-button active' : 'student-notification-button'}
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setNotificationOpen((open) => !open);
+            }}
+            aria-expanded={notificationOpen}
+            aria-label="Open student notifications"
+          >
+            <span aria-hidden="true">!</span>
+            {visibleNotifications.length > 0 && <strong>{visibleNotifications.length}</strong>}
+          </button>
+
+          <button
             className="avatar-button"
             type="button"
-            onClick={() => setMenuOpen((open) => !open)}
+            onClick={() => {
+              setNotificationOpen(false);
+              setMenuOpen((open) => !open);
+            }}
             aria-expanded={menuOpen}
             aria-label="Open student menu"
           >
             {studentInitial}
           </button>
+
+          {notificationOpen && (
+            <div className="student-notification-popover">
+              <div className="student-notification-popover-header">
+                <div>
+                  <p className="eyebrow">Notifications</p>
+                  <h2>Live Sessions</h2>
+                </div>
+                <span>{visibleNotifications.length}</span>
+              </div>
+              <StudentNotificationList
+                compact
+                notifications={visibleNotifications}
+                onDismiss={dismissNotification}
+                onJoin={joinFromNotification}
+              />
+            </div>
+          )}
 
           {menuOpen && (
             <div className="student-menu">

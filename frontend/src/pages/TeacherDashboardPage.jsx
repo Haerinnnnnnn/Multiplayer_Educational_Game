@@ -20,6 +20,7 @@ import {
   readExcelQuestionFile,
   validateQuestionImportRow,
 } from '../services/questionImportService.js';
+import { fetchTeacherJoinRequestNotifications } from '../services/teacherNotificationService.js';
 
 function getInitial(name) {
   return (name || 'T').trim().charAt(0).toUpperCase() || 'T';
@@ -429,6 +430,8 @@ function ModuleStudentsTab({ currentUser, module, onBack }) {
   const [candidateSearch, setCandidateSearch] = useState('');
   const [candidates, setCandidates] = useState([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [kickConfirmMember, setKickConfirmMember] = useState(null);
+  const [kickingStudentId, setKickingStudentId] = useState(null);
 
   const joinedStudents = studentRows.filter((row) => row.accessType === 'member');
   const pendingRequests = studentRows.filter(
@@ -578,14 +581,7 @@ function ModuleStudentsTab({ currentUser, module, onBack }) {
   }
 
   async function kickStudent(member) {
-    const confirmed = window.confirm(
-      `Remove ${member.studentCode || member.name} from ${module.moduleCode || module.title}?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    setKickingStudentId(member.studentId);
     setBusy(true);
     setFeedback('');
 
@@ -599,9 +595,11 @@ function ModuleStudentsTab({ currentUser, module, onBack }) {
       if (candidatePanelOpen) {
         await loadCandidates();
       }
+      setKickConfirmMember(null);
     } catch (error) {
       setFeedback(error.message);
     } finally {
+      setKickingStudentId(null);
       setBusy(false);
     }
   }
@@ -831,7 +829,7 @@ function ModuleStudentsTab({ currentUser, module, onBack }) {
                       className="link-button danger-link"
                       disabled={busy}
                       type="button"
-                      onClick={() => kickStudent(member)}
+                      onClick={() => setKickConfirmMember(member)}
                     >
                       Kick
                     </button>
@@ -873,6 +871,56 @@ function ModuleStudentsTab({ currentUser, module, onBack }) {
           </div>
         </section>
       )}
+
+      {kickConfirmMember &&
+        createPortal(
+          <div
+            className="modal-backdrop import-delete-backdrop module-kick-backdrop"
+            role="presentation"
+            onClick={() => {
+              if (!kickingStudentId) {
+                setKickConfirmMember(null);
+              }
+            }}
+          >
+            <section
+              aria-modal="true"
+              className="review-message-modal import-delete-modal module-kick-modal"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <p className="eyebrow">Remove Student</p>
+              <h2>Kick {kickConfirmMember.studentCode || kickConfirmMember.name} from this module?</h2>
+              <p>
+                This student will lose access to {module.moduleCode || module.title}. They can request to join
+                again later if the module is private.
+              </p>
+              <div className="module-kick-student-summary">
+                <strong>{kickConfirmMember.name}</strong>
+                <span>{kickConfirmMember.email}</span>
+              </div>
+              <div className="button-row">
+                <button
+                  className="secondary-button danger-button"
+                  disabled={Boolean(kickingStudentId)}
+                  type="button"
+                  onClick={() => kickStudent(kickConfirmMember)}
+                >
+                  {kickingStudentId ? 'Removing...' : 'Yes, Kick Student'}
+                </button>
+                <button
+                  className="secondary-button"
+                  disabled={Boolean(kickingStudentId)}
+                  type="button"
+                  onClick={() => setKickConfirmMember(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }
@@ -1862,6 +1910,9 @@ export function TeacherDashboardPage({
 }) {
   const [activeTab, setActiveTab] = useState(initialTab === 'results' ? 'history' : initialTab);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [joinRequestNotifications, setJoinRequestNotifications] = useState([]);
+  const [notificationError, setNotificationError] = useState('');
   const teacherInitial = useMemo(() => getInitial(currentUser?.name), [currentUser?.name]);
 
   useEffect(() => {
@@ -1874,6 +1925,33 @@ export function TeacherDashboardPage({
     setActiveTab(initialTab === 'results' ? 'history' : initialTab);
   }, [initialTab]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadJoinRequestNotifications() {
+      try {
+        const notifications = await fetchTeacherJoinRequestNotifications(modules);
+
+        if (isMounted) {
+          setJoinRequestNotifications(notifications);
+          setNotificationError('');
+        }
+      } catch (error) {
+        if (isMounted) {
+          setNotificationError(error.message);
+        }
+      }
+    }
+
+    loadJoinRequestNotifications();
+    const refreshTimer = window.setInterval(loadJoinRequestNotifications, 8000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(refreshTimer);
+    };
+  }, [modules]);
+
   function openQuestionsForModule(moduleId) {
     onSelectedModuleChange(moduleId);
     setActiveTab('questions');
@@ -1882,6 +1960,12 @@ export function TeacherDashboardPage({
   function openStudentsForModule(moduleId) {
     onSelectedModuleChange(moduleId);
     setActiveTab('module-students');
+  }
+
+  function openRequestNotification(notification) {
+    setNotificationOpen(false);
+    setMenuOpen(false);
+    openStudentsForModule(notification.moduleId);
   }
 
   return (
@@ -1934,14 +2018,84 @@ export function TeacherDashboardPage({
 
         <div className="teacher-avatar-area">
           <button
+            className={
+              notificationOpen
+                ? 'student-notification-button teacher-notification-button active'
+                : 'student-notification-button teacher-notification-button'
+            }
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setNotificationOpen((open) => !open);
+            }}
+            aria-expanded={notificationOpen}
+            aria-label="Open teacher notifications"
+          >
+            !
+            {joinRequestNotifications.length > 0 && <strong>{joinRequestNotifications.length}</strong>}
+          </button>
+
+          <button
             className="avatar-button teacher-avatar-button"
             type="button"
-            onClick={() => setMenuOpen((open) => !open)}
+            onClick={() => {
+              setNotificationOpen(false);
+              setMenuOpen((open) => !open);
+            }}
             aria-expanded={menuOpen}
             aria-label="Open teacher menu"
           >
             {teacherInitial}
           </button>
+
+          {notificationOpen && (
+            <div className="student-notification-popover teacher-notification-popover">
+              <div className="student-notification-popover-header">
+                <div>
+                  <p className="eyebrow">Teacher Notifications</p>
+                  <h2>Join Requests</h2>
+                </div>
+                <span>{joinRequestNotifications.length}</span>
+              </div>
+
+              {notificationError && (
+                <p className="student-notification-empty compact">{notificationError}</p>
+              )}
+
+              {!notificationError && joinRequestNotifications.length > 0 && (
+                <div className="student-notification-list compact">
+                  {joinRequestNotifications.map((notification) => (
+                    <article className="student-notification-card teacher-notification-card" key={notification.id}>
+                      <div>
+                        <p className="eyebrow">
+                          {notification.moduleCode} - {notification.studentCode}
+                        </p>
+                        <h3>{notification.studentName}</h3>
+                        <p>
+                          Requested to join {notification.moduleTitle}.
+                          {notification.requestMessage ? ` Message: ${notification.requestMessage}` : ''}
+                        </p>
+                        <small>{notification.studentEmail}</small>
+                      </div>
+                      <div className="student-notification-actions">
+                        <button
+                          className="primary-button"
+                          type="button"
+                          onClick={() => openRequestNotification(notification)}
+                        >
+                          Review
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              {!notificationError && joinRequestNotifications.length === 0 && (
+                <p className="student-notification-empty compact">No pending join requests.</p>
+              )}
+            </div>
+          )}
 
           {menuOpen && (
             <div className="teacher-menu">

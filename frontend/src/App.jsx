@@ -1914,10 +1914,10 @@ export default function App() {
     go('teacher-dashboard');
   }
 
-  function openStudentJoin() {
+  function openStudentJoin(sessionCode = '') {
     setJoinForm((currentForm) => ({
       ...currentForm,
-      code: '',
+      code: sessionCode ? String(sessionCode).trim().toUpperCase() : '',
       name: currentUser?.role === 'student' ? currentUser.name : currentForm.name,
     }));
     go('student-join');
