@@ -1186,6 +1186,7 @@ export function AdminDashboardPage({
   const [modulesError, setModulesError] = useState('');
   const [sessionsError, setSessionsError] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(null);
   const adminInitial = useMemo(() => getInitial(currentUser?.name), [currentUser?.name]);
 
   useEffect(() => {
@@ -1281,10 +1282,31 @@ export function AdminDashboardPage({
     }
   }
 
+  function requestAdminConfirm(options) {
+    return new Promise((resolve) => {
+      setConfirmDialog({
+        ...options,
+        resolve,
+      });
+    });
+  }
+
+  function closeAdminConfirm(value) {
+    if (confirmDialog?.resolve) {
+      confirmDialog.resolve(value);
+    }
+
+    setConfirmDialog(null);
+  }
+
   async function deleteUser(user) {
-    const confirmed = window.confirm(
-      `Delete ${user.name}? This permanently removes the ${user.role} login account and profile.`,
-    );
+    const confirmed = await requestAdminConfirm({
+      eyebrow: 'Delete Account',
+      title: `Delete ${user.name}?`,
+      message: `This permanently removes the ${user.role} login account and profile.`,
+      confirmText: 'Yes, Delete',
+      danger: true,
+    });
 
     if (!confirmed) {
       return false;
@@ -1328,9 +1350,16 @@ export function AdminDashboardPage({
 
   async function toggleModuleLock(module) {
     const nextLocked = !module.isLocked;
-    const confirmed = window.confirm(
-      `${nextLocked ? 'Lock' : 'Unlock'} ${module.moduleCode || module.title}?`,
-    );
+    const action = nextLocked ? 'Lock' : 'Unlock';
+    const confirmed = await requestAdminConfirm({
+      eyebrow: 'Module Control',
+      title: `${action} ${module.moduleCode || module.title}?`,
+      message: nextLocked
+        ? 'Locked modules cannot be published to students or used in game sessions until admin unlocks them.'
+        : 'This module will become available for teacher sessions again.',
+      confirmText: action,
+      danger: nextLocked,
+    });
 
     if (!confirmed) {
       return;
@@ -1361,9 +1390,16 @@ export function AdminDashboardPage({
   }
 
   async function reviewModuleRequest(reviewRequest, decision, adminFeedback) {
-    const confirmed = window.confirm(
-      `${decision === 'approved' ? 'Approve and unlock' : 'Reject'} this module review request?`,
-    );
+    const isApproved = decision === 'approved';
+    const confirmed = await requestAdminConfirm({
+      eyebrow: 'Review Request',
+      title: `${isApproved ? 'Approve and unlock' : 'Reject'} this module review request?`,
+      message: isApproved
+        ? 'The module will be unlocked and the teacher will see the approved status.'
+        : 'The module will remain locked and the teacher will see the rejected status.',
+      confirmText: isApproved ? 'Approve And Unlock' : 'Reject Request',
+      danger: !isApproved,
+    });
 
     if (!confirmed) {
       return;
@@ -1540,6 +1576,39 @@ export function AdminDashboardPage({
         )}
         {activeTab === 'settings' && <SettingsTab currentUser={currentUser} />}
       </section>
+
+      {confirmDialog &&
+        createPortal(
+          <div
+            className="modal-backdrop import-delete-backdrop admin-confirm-backdrop"
+            role="presentation"
+            onClick={() => closeAdminConfirm(false)}
+          >
+            <section
+              aria-modal="true"
+              className="review-message-modal import-delete-modal admin-confirm-modal"
+              role="dialog"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <p className="eyebrow">{confirmDialog.eyebrow || 'Confirm Action'}</p>
+              <h2>{confirmDialog.title}</h2>
+              <p>{confirmDialog.message}</p>
+              <div className="button-row">
+                <button
+                  className={confirmDialog.danger ? 'secondary-button danger-button' : 'primary-button'}
+                  type="button"
+                  onClick={() => closeAdminConfirm(true)}
+                >
+                  {confirmDialog.confirmText || 'Confirm'}
+                </button>
+                <button className="secondary-button" type="button" onClick={() => closeAdminConfirm(false)}>
+                  Cancel
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
     </main>
   );
 }

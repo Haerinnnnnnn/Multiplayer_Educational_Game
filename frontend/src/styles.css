@@ -5869,6 +5869,10 @@ th {
   width: min(100%, 560px);
 }
 
+.admin-confirm-modal {
+  width: min(100%, 540px);
+}
+
 .module-kick-student-summary {
   display: grid;
   gap: 4px;
