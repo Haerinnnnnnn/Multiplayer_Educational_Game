@@ -10,11 +10,15 @@ function getGameTypeLabel(gameType) {
 
 export function StudentWaitingPage({
   currentSession,
+  leaveConfirmOpen: controlledLeaveConfirmOpen,
+  onLeaveConfirmChange,
   onLeaveSession,
   student,
 }) {
   const [rulesOpen, setRulesOpen] = useState(false);
-  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [localLeaveConfirmOpen, setLocalLeaveConfirmOpen] = useState(false);
+  const leaveConfirmOpen = controlledLeaveConfirmOpen ?? localLeaveConfirmOpen;
+  const setLeaveConfirmOpen = onLeaveConfirmChange || setLocalLeaveConfirmOpen;
   const gameTypeLabel = getGameTypeLabel(currentSession?.gameType);
   const gameType = useMemo(
     () => currentSession?.gameType || 'classic_mcq',

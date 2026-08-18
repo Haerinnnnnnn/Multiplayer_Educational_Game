@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { initialModules, initialUsers } from './data/seedData.js';
 import { AdminDashboardPage } from './pages/AdminDashboardPage.jsx';
 import { CreateSessionPage } from './pages/CreateSessionPage.jsx';
 import { LiveLobbyPage } from './pages/LiveLobbyPage.jsx';
-import { LoginPage } from './pages/LoginPage.jsx';
 import { LogoutLoadingPage } from './pages/LogoutLoadingPage.jsx';
 import { ModuleManagementPage } from './pages/ModuleManagementPage.jsx';
 import { QuestionBankPage } from './pages/QuestionBankPage.jsx';
@@ -12,17 +11,29 @@ import { RoleSelectionPage } from './pages/RoleSelectionPage.jsx';
 import { SessionResultsPage } from './pages/SessionResultsPage.jsx';
 import { SessionClosedLoadingPage } from './pages/SessionClosedLoadingPage.jsx';
 import { SessionSummaryLoadingPage } from './pages/SessionSummaryLoadingPage.jsx';
-import { StartPage } from './pages/StartPage.jsx';
-import { StudentRegisterPage } from './pages/StudentRegisterPage.jsx';
+import { LoadingScreen } from './components/LoadingScreen.jsx';
 import { StudentDashboardPage } from './pages/StudentDashboardPage.jsx';
 import { StudentGamePage } from './pages/StudentGamePage.jsx';
 import { StudentJoinPage } from './pages/StudentJoinPage.jsx';
 import { StudentWaitingPage } from './pages/StudentWaitingPage.jsx';
 import { TeacherControlPage } from './pages/TeacherControlPage.jsx';
 import { TeacherDashboardPage } from './pages/TeacherDashboardPage.jsx';
-import { TeacherRegisterPage } from './pages/TeacherRegisterPage.jsx';
 import { TeacherSessionReviewPage } from './pages/TeacherSessionReviewPage.jsx';
 import { UserManagementPage } from './pages/UserManagementPage.jsx';
+import { PublicArea } from './routes/PublicArea.jsx';
+import {
+  getDashboardPath,
+  getDashboardPageFromPath,
+  getPublicPageFromPath,
+  getSessionPageFromPath,
+  getSessionPath,
+  isDashboardPage,
+  isPublicPage,
+  isSessionPage,
+  syncDashboardPath,
+  syncPublicPath,
+  syncSessionPath,
+} from './routes/publicRoutes.js';
 import {
   createTeacherModule,
   deleteTeacherModule,
@@ -63,6 +74,7 @@ import {
   fetchTeacherSessions,
   joinDatabaseSession,
   leaveDatabaseSession,
+  markClassicParticipantLeft,
   markQrPairReady,
   markQrPairTimeout,
   endClassicSessionIfAllCompleted,
@@ -111,12 +123,19 @@ function upsertById(items, nextItem) {
 }
 
 export default function App() {
-  const [page, setPage] = useState('start');
+  const [page, setPage] = useState(
+    () =>
+      getPublicPageFromPath(window.location.pathname) ||
+      getDashboardPageFromPath(window.location.pathname) ||
+      getSessionPageFromPath(window.location.pathname) ||
+      'start',
+  );
   const [modules, setModules] = useState(initialModules);
   const [sessions, setSessions] = useState([]);
   const [users, setUsers] = useState(initialUsers);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [student, setStudent] = useState(null);
   const [selectedModuleId, setSelectedModuleId] = useState(initialModules[0].id);
   const [moduleForm, setModuleForm] = useState({ title: '', description: '' });
@@ -150,6 +169,10 @@ export default function App() {
     returnPage: 'student-dashboard',
     title: '',
   });
+  const [backLogoutPromptOpen, setBackLogoutPromptOpen] = useState(false);
+  const [studentSessionLeavePromptOpen, setStudentSessionLeavePromptOpen] = useState(false);
+  const dashboardGuardRef = useRef('');
+  const studentSessionGuardRef = useRef('');
 
   const activeSession = sessions.find((session) => session.id === activeSessionId);
   const activeModule = modules.find((module) => module.id === activeSession?.moduleId);
@@ -168,6 +191,165 @@ export default function App() {
       past: sessions.filter((session) => session.status === 'ended').length,
     };
   }, [modules, sessions]);
+
+  useEffect(() => {
+    if (isPublicPage(page)) {
+      syncPublicPath(page, { replace: window.location.pathname === '/' });
+    }
+
+    if (isDashboardPage(page)) {
+      syncDashboardPath(page, { replace: Boolean(getPublicPageFromPath(window.location.pathname)) });
+    }
+
+    if (isSessionPage(page)) {
+      syncSessionPath(page, { replace: Boolean(getPublicPageFromPath(window.location.pathname)) });
+    }
+  }, [page]);
+
+  useEffect(() => {
+    function handleRoutePopState() {
+      const nextPublicPage = getPublicPageFromPath(window.location.pathname);
+      const nextDashboardPage = getDashboardPageFromPath(window.location.pathname);
+
+      if (currentUser) {
+        if (currentUser.role === 'student' && ['student-waiting', 'student-game'].includes(page)) {
+          holdStudentSessionAndAskLeave(page);
+          return;
+        }
+
+        const currentDashboardPage = getDashboardPageForCurrentUser();
+        holdDashboardAndAskToLogout(currentDashboardPage);
+        return;
+      }
+
+      if (nextDashboardPage || getSessionPageFromPath(window.location.pathname)) {
+        setFeedback('');
+        setPage('start');
+        syncPublicPath('start', { replace: true });
+        return;
+      }
+
+      if (!nextPublicPage) {
+        return;
+      }
+
+      setFeedback('');
+      setPage(nextPublicPage);
+    }
+
+    window.addEventListener('popstate', handleRoutePopState);
+    return () => window.removeEventListener('popstate', handleRoutePopState);
+  }, [currentUser, page]);
+
+  useEffect(() => {
+    if (!authChecked || (!isDashboardPage(page) && !isSessionPage(page))) {
+      return;
+    }
+
+    if (!currentUser) {
+      setFeedback('');
+      setPage('start');
+      syncPublicPath('start', { replace: true });
+      return;
+    }
+
+    const currentDashboardPage = getDashboardPageForCurrentUser();
+
+    if (isSessionPage(page)) {
+      if (currentUser.role !== 'student') {
+        setFeedback('');
+        setPage(currentDashboardPage);
+        syncDashboardPath(currentDashboardPage, { replace: true });
+        return;
+      }
+
+      if (!studentSession?.id) {
+        setFeedback('');
+        setPage('student-dashboard');
+        syncDashboardPath('student-dashboard', { replace: true });
+      }
+
+      return;
+    }
+
+    if (page !== currentDashboardPage) {
+      setFeedback('');
+      setPage(currentDashboardPage);
+      syncDashboardPath(currentDashboardPage, { replace: true });
+    }
+  }, [authChecked, currentUser, page, studentSession?.id]);
+
+  useEffect(() => {
+    if (!authChecked || !currentUser || !isDashboardPage(page) || backLogoutPromptOpen) {
+      return;
+    }
+
+    const dashboardPage = getDashboardPageForCurrentUser();
+    const dashboardPath = getDashboardPath(dashboardPage);
+
+    if (!dashboardPath || page !== dashboardPage) {
+      return;
+    }
+
+    const guardKey = `${currentUser.id}:${dashboardPath}`;
+    const currentState = window.history.state || {};
+
+    if (
+      dashboardGuardRef.current === guardKey &&
+      currentState.dashboardGuard &&
+      window.location.pathname === dashboardPath
+    ) {
+      return;
+    }
+
+    dashboardGuardRef.current = guardKey;
+    window.history.replaceState({ page: dashboardPage }, '', dashboardPath);
+    window.history.pushState({ page: dashboardPage, dashboardGuard: true }, '', dashboardPath);
+  }, [authChecked, backLogoutPromptOpen, currentUser, page]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      dashboardGuardRef.current = '';
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (
+      !authChecked ||
+      currentUser?.role !== 'student' ||
+      !isSessionPage(page) ||
+      studentSessionLeavePromptOpen
+    ) {
+      return;
+    }
+
+    const sessionPath = getSessionPath(page);
+
+    if (!sessionPath) {
+      return;
+    }
+
+    const guardKey = `${currentUser.id}:${sessionPath}`;
+    const currentState = window.history.state || {};
+
+    if (
+      studentSessionGuardRef.current === guardKey &&
+      currentState.studentSessionGuard &&
+      window.location.pathname === sessionPath
+    ) {
+      return;
+    }
+
+    studentSessionGuardRef.current = guardKey;
+    window.history.replaceState({ page }, '', sessionPath);
+    window.history.pushState({ page, studentSessionGuard: true }, '', sessionPath);
+  }, [authChecked, currentUser, page, studentSessionLeavePromptOpen]);
+
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'student') {
+      studentSessionGuardRef.current = '';
+    }
+  }, [currentUser]);
 
   async function loadTeacherModules(teacherId) {
     setLoadingModules(true);
@@ -537,9 +719,24 @@ export default function App() {
         if (joinForm.code.trim()) {
           setFeedback('Please login as a student to join this session.');
           setPage('login');
+          syncPublicPath('login', { replace: true });
+          return;
+        }
+
+        if (getDashboardPageFromPath(window.location.pathname)) {
+          setFeedback('');
+          setPage('start');
+          syncPublicPath('start', { replace: true });
         }
       } catch (error) {
         console.warn(error.message);
+        if (getDashboardPageFromPath(window.location.pathname)) {
+          setFeedback('');
+          setPage('start');
+          syncPublicPath('start', { replace: true });
+        }
+      } finally {
+        setAuthChecked(true);
       }
     }
 
@@ -661,9 +858,81 @@ export default function App() {
     };
   }, [currentUser, joinAccessPrompt?.type, joinAccessPrompt?.waiting, joinForm.code]);
 
-  function go(nextPage) {
+  function go(nextPage, options = {}) {
     setFeedback('');
+    setBackLogoutPromptOpen(false);
+    setStudentSessionLeavePromptOpen(false);
     setPage(nextPage);
+    syncPublicPath(nextPage, options);
+    syncDashboardPath(nextPage, options);
+    syncSessionPath(nextPage, options);
+  }
+
+  function holdDashboardAndAskToLogout(dashboardPage) {
+    const dashboardPath = getDashboardPath(dashboardPage);
+
+    setFeedback('');
+    setPage(dashboardPage);
+    setBackLogoutPromptOpen(true);
+
+    if (!dashboardPath) {
+      syncDashboardPath(dashboardPage, { replace: true });
+      return;
+    }
+
+    window.history.replaceState({ page: dashboardPage }, '', dashboardPath);
+    window.history.pushState({ page: dashboardPage, backGuard: true, dashboardGuard: true }, '', dashboardPath);
+  }
+
+  function cancelBackLogoutPrompt() {
+    const dashboardPage = getDashboardPageForCurrentUser();
+    const dashboardPath = getDashboardPath(dashboardPage);
+
+    setBackLogoutPromptOpen(false);
+    setFeedback('');
+    setPage(dashboardPage);
+
+    if (dashboardPath) {
+      window.history.replaceState({ page: dashboardPage }, '', dashboardPath);
+      return;
+    }
+
+    syncDashboardPath(dashboardPage, { replace: true });
+  }
+
+  function confirmBackLogoutPrompt() {
+    setBackLogoutPromptOpen(false);
+    logout();
+  }
+
+  function holdStudentSessionAndAskLeave(sessionPage) {
+    const sessionPath = getSessionPath(sessionPage);
+
+    setFeedback('');
+    setPage(sessionPage);
+    setStudentSessionLeavePromptOpen(true);
+
+    if (!sessionPath) {
+      syncSessionPath(sessionPage, { replace: true });
+      return;
+    }
+
+    window.history.replaceState({ page: sessionPage }, '', sessionPath);
+    window.history.pushState({ page: sessionPage, studentSessionGuard: true }, '', sessionPath);
+  }
+
+  function cancelStudentSessionLeavePrompt() {
+    const sessionPath = getSessionPath(page);
+
+    setStudentSessionLeavePromptOpen(false);
+    setFeedback('');
+
+    if (sessionPath) {
+      window.history.replaceState({ page }, '', sessionPath);
+      return;
+    }
+
+    syncSessionPath(page, { replace: true });
   }
 
   function handleMissingLiveSession(error) {
@@ -809,6 +1078,7 @@ export default function App() {
 
   async function logout() {
     setFeedback('');
+    setBackLogoutPromptOpen(false);
     setPage('logout-loading');
 
     try {
@@ -823,10 +1093,12 @@ export default function App() {
       setActiveSessionId(null);
       window.setTimeout(() => {
         setPage('start');
+        syncPublicPath('start', { replace: true });
       }, 900);
     } catch (error) {
       setFeedback(error.message);
       setPage('start');
+      syncPublicPath('start', { replace: true });
     }
   }
 
@@ -924,6 +1196,7 @@ export default function App() {
       setStudent(null);
       setFeedback('Student account registered successfully. Please login.');
       setPage('login');
+      syncPublicPath('login', { replace: true });
     } catch (error) {
       setFeedback(error.message);
     }
@@ -941,6 +1214,7 @@ export default function App() {
       setModules(initialModules);
       setFeedback('Teacher account registered successfully. Please login.');
       setPage('login');
+      syncPublicPath('login', { replace: true });
     } catch (error) {
       setFeedback(error.message);
     }
@@ -1824,6 +2098,85 @@ export default function App() {
     }
   }
 
+  function getCurrentStudentParticipant(session) {
+    if (!session || currentUser?.role !== 'student') {
+      return null;
+    }
+
+    return (session.participants || []).find(
+      (participant) =>
+        participant.studentId === currentUser.id ||
+        participant.id === currentUser.id ||
+        participant.studentId === student?.id,
+    );
+  }
+
+  async function leaveActiveStudentGameSession() {
+    const currentSession = activeSession || studentSession;
+
+    if (!currentSession || currentUser?.role !== 'student') {
+      go('student-dashboard');
+      return;
+    }
+
+    const currentModule =
+      activeModule ||
+      modules.find((module) => module.id === Number(currentSession.moduleId));
+    const currentParticipant = getCurrentStudentParticipant(currentSession);
+
+    try {
+      setStudentSessionLeavePromptOpen(false);
+
+      if (currentSession.gameType === 'qr_pair_match') {
+        await updateDatabaseSessionStatus(
+          currentSession.id,
+          'ended',
+          currentSession.currentQuestionIndex || 0,
+        );
+
+        const updatedSession = currentModule
+          ? await fetchSessionDetails(currentSession.id, currentModule)
+          : { ...currentSession, status: 'ended' };
+
+        setSessions((currentSessions) => upsertById(currentSessions, updatedSession));
+        setActiveSessionId(currentSession.id);
+        setStudent((currentStudent) => ({
+          ...currentStudent,
+          sessionId: currentSession.id,
+        }));
+        setFeedback('QR Pair Match ended because you left the game.');
+        go('session-results');
+        return;
+      }
+
+      await markClassicParticipantLeft({
+        participant: currentParticipant,
+        session: currentSession,
+      });
+
+      if (currentModule) {
+        const latestSession = await fetchSessionDetails(currentSession.id, currentModule);
+        const endedSession = await endClassicSessionIfAllCompleted(latestSession);
+        const refreshedSession = endedSession
+          ? await fetchSessionDetails(currentSession.id, currentModule)
+          : latestSession;
+
+        setSessions((currentSessions) => upsertById(currentSessions, refreshedSession));
+      }
+
+      setStudent((currentStudent) => ({
+        ...currentStudent,
+        sessionId: null,
+      }));
+      setActiveSessionId(null);
+      clearJoinSessionState();
+      setFeedback('You left the game session.');
+      go('student-dashboard');
+    } catch (error) {
+      setFeedback(error.message);
+    }
+  }
+
   function addUser(event) {
     event.preventDefault();
 
@@ -1915,9 +2268,11 @@ export default function App() {
   }
 
   function openStudentJoin(sessionCode = '') {
+    const cleanSessionCode = typeof sessionCode === 'string' ? sessionCode.trim().toUpperCase() : '';
+
     setJoinForm((currentForm) => ({
       ...currentForm,
-      code: sessionCode ? String(sessionCode).trim().toUpperCase() : '',
+      code: cleanSessionCode,
       name: currentUser?.role === 'student' ? currentUser.name : currentForm.name,
     }));
     go('student-join');
@@ -1983,10 +2338,6 @@ export default function App() {
     return updatedUser;
   }
 
-  if (page === 'start') {
-    return <StartPage onStart={() => go('login')} />;
-  }
-
   if (page === 'logout-loading') {
     return <LogoutLoadingPage />;
   }
@@ -2006,33 +2357,29 @@ export default function App() {
     );
   }
 
-  if (page === 'login') {
+  if ((isDashboardPage(page) || isSessionPage(page)) && !authChecked) {
     return (
-      <LoginPage
+      <LoadingScreen
+        eyebrow="Checking Session"
+        message="Please wait while Obits verifies your login."
+        status="Securing dashboard"
+        title="Confirming your account"
+      />
+    );
+  }
+
+  if (isPublicPage(page)) {
+    return (
+      <PublicArea
         feedback={feedback}
+        page={page}
+        onBackToLogin={() => go('login')}
         onLogin={login}
+        onRegisterStudent={registerStudentAccount}
+        onRegisterTeacher={registerTeacherAccount}
+        onStart={() => go('login')}
         onStudentRegister={() => go('student-register')}
         onTeacherRegister={() => go('teacher-register')}
-      />
-    );
-  }
-
-  if (page === 'student-register') {
-    return (
-      <StudentRegisterPage
-        feedback={feedback}
-        onBack={() => go('login')}
-        onRegister={registerStudentAccount}
-      />
-    );
-  }
-
-  if (page === 'teacher-register') {
-    return (
-      <TeacherRegisterPage
-        feedback={feedback}
-        onBack={() => go('login')}
-        onRegister={registerTeacherAccount}
       />
     );
   }
@@ -2050,59 +2397,73 @@ export default function App() {
 
   if (page === 'student-dashboard') {
     return (
-      <StudentDashboardPage
-        student={currentUser?.role === 'student' ? currentUser : student}
-        onJoinSession={openStudentJoin}
-        onLogout={logout}
-        onUpdateProfile={updateCurrentProfile}
-        onViewActivityResult={openStudentActivityResult}
-      />
+      <>
+        <StudentDashboardPage
+          student={currentUser?.role === 'student' ? currentUser : student}
+          onJoinSession={openStudentJoin}
+          onLogout={logout}
+          onUpdateProfile={updateCurrentProfile}
+          onViewActivityResult={openStudentActivityResult}
+        />
+        <DashboardBackLogoutPrompt
+          isOpen={backLogoutPromptOpen}
+          onCancel={cancelBackLogoutPrompt}
+          onConfirm={confirmBackLogoutPrompt}
+        />
+      </>
     );
   }
 
   if (page === 'teacher-dashboard') {
     return (
-      <TeacherDashboardPage
-        currentUser={currentUser}
-        feedback={feedback}
-        initialTab={teacherDashboardInitialTab}
-        loadingModules={loadingModules}
-        moduleBusyMessage={moduleBusyMessage}
-        moduleForm={moduleForm}
-        modules={modules}
-        onAddModule={addModule}
-        onAddQuestion={addQuestion}
-        onCreateSession={createSession}
-        onDeleteModule={deleteModule}
-        onDeleteQuestion={deleteQuestion}
-        onEditModule={editModuleDetails}
-        onEditQuestion={editQuestion}
-        onCancelQuestionEdit={resetQuestionForm}
-        onImportQuestions={importQuestions}
-        stats={stats}
-        onLogout={logout}
-        onModuleFormChange={setModuleForm}
-        onOpenResults={openSessionResults}
-        onOpenActiveSession={openTeacherActiveSession}
-        ongoingSession={sessions.find((session) =>
-          ['lobby', 'live', 'paused', 'active'].includes(String(session.status || '').toLowerCase()) &&
-          (!session.teacherId || session.teacherId === currentUser?.id),
-        )}
-        onQuestionFormChange={setQuestionForm}
-        onRefreshModules={() => loadTeacherModules(currentUser?.id)}
-        onRequestModuleReview={requestModuleReview}
-        onSelectedModuleChange={selectModule}
-        onSessionFormChange={setSessionForm}
-        onToggleModuleVisibility={toggleModuleVisibility}
-        onUpdateProfile={updateCurrentProfile}
-        onReviewSession={openTeacherSessionReview}
-        questionForm={questionForm}
-        editingQuestionId={editingQuestionId}
-        selectedModule={selectedModule}
-        selectedModuleId={selectedModuleId}
-        sessionForm={sessionForm}
-        sessions={sessions}
-      />
+      <>
+        <TeacherDashboardPage
+          currentUser={currentUser}
+          feedback={feedback}
+          initialTab={teacherDashboardInitialTab}
+          loadingModules={loadingModules}
+          moduleBusyMessage={moduleBusyMessage}
+          moduleForm={moduleForm}
+          modules={modules}
+          onAddModule={addModule}
+          onAddQuestion={addQuestion}
+          onCreateSession={createSession}
+          onDeleteModule={deleteModule}
+          onDeleteQuestion={deleteQuestion}
+          onEditModule={editModuleDetails}
+          onEditQuestion={editQuestion}
+          onCancelQuestionEdit={resetQuestionForm}
+          onImportQuestions={importQuestions}
+          stats={stats}
+          onLogout={logout}
+          onModuleFormChange={setModuleForm}
+          onOpenResults={openSessionResults}
+          onOpenActiveSession={openTeacherActiveSession}
+          ongoingSession={sessions.find((session) =>
+            ['lobby', 'live', 'paused', 'active'].includes(String(session.status || '').toLowerCase()) &&
+            (!session.teacherId || session.teacherId === currentUser?.id),
+          )}
+          onQuestionFormChange={setQuestionForm}
+          onRefreshModules={() => loadTeacherModules(currentUser?.id)}
+          onRequestModuleReview={requestModuleReview}
+          onSelectedModuleChange={selectModule}
+          onSessionFormChange={setSessionForm}
+          onToggleModuleVisibility={toggleModuleVisibility}
+          onUpdateProfile={updateCurrentProfile}
+          onReviewSession={openTeacherSessionReview}
+          questionForm={questionForm}
+          editingQuestionId={editingQuestionId}
+          selectedModule={selectedModule}
+          selectedModuleId={selectedModuleId}
+          sessionForm={sessionForm}
+          sessions={sessions}
+        />
+        <DashboardBackLogoutPrompt
+          isOpen={backLogoutPromptOpen}
+          onCancel={cancelBackLogoutPrompt}
+          onConfirm={confirmBackLogoutPrompt}
+        />
+      </>
     );
   }
 
@@ -2195,6 +2556,8 @@ export default function App() {
     return (
       <StudentWaitingPage
         currentSession={studentSession}
+        leaveConfirmOpen={studentSessionLeavePromptOpen}
+        onLeaveConfirmChange={setStudentSessionLeavePromptOpen}
         onLeaveSession={leaveWaitingRoom}
         student={student}
       />
@@ -2207,10 +2570,12 @@ export default function App() {
         activeModule={activeModule}
         activeSession={activeSession}
         feedback={feedback}
-        onBack={() => go('student-waiting')}
-        onLogout={logout}
+        leaveConfirmOpen={studentSessionLeavePromptOpen}
+        onBack={() => setStudentSessionLeavePromptOpen(true)}
         onResults={() => go('session-results')}
         onClassicCompleted={completeClassicMcqProgress}
+        onLeaveConfirmChange={setStudentSessionLeavePromptOpen}
+        onLeaveSession={leaveActiveStudentGameSession}
         onQrPairReady={readyForNextQrPairTurn}
         onQrPairScan={submitQrPairAnswerToken}
         onQrPairTimeout={timeoutQrPairAssignment}
@@ -2269,14 +2634,21 @@ export default function App() {
 
   if (page === 'admin-dashboard') {
     return (
-      <AdminDashboardPage
-        currentUser={currentUser}
-        modules={modules}
-        onLogout={logout}
-        sessions={sessions}
-        stats={stats}
-        users={users}
-      />
+      <>
+        <AdminDashboardPage
+          currentUser={currentUser}
+          modules={modules}
+          onLogout={logout}
+          sessions={sessions}
+          stats={stats}
+          users={users}
+        />
+        <DashboardBackLogoutPrompt
+          isOpen={backLogoutPromptOpen}
+          onCancel={cancelBackLogoutPrompt}
+          onConfirm={confirmBackLogoutPrompt}
+        />
+      </>
     );
   }
 
@@ -2296,4 +2668,36 @@ export default function App() {
   }
 
   return null;
+}
+
+function DashboardBackLogoutPrompt({ isOpen, onCancel, onConfirm }) {
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop import-delete-backdrop dashboard-back-backdrop" role="presentation">
+      <section
+        className="review-message-modal import-delete-modal dashboard-back-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dashboard-back-title"
+      >
+        <p className="eyebrow">Leave Dashboard</p>
+        <h2 id="dashboard-back-title">Logout and return to main page?</h2>
+        <p>
+          You are currently signed in. Going back from the dashboard will logout your account and return you to the
+          Obits main page.
+        </p>
+        <div className="dashboard-back-actions">
+          <button className="secondary-button danger-button" type="button" onClick={onConfirm}>
+            Yes, Logout
+          </button>
+          <button className="primary-button" type="button" onClick={onCancel}>
+            Stay Here
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }

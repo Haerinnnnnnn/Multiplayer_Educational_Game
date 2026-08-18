@@ -9,7 +9,9 @@ function toParticipant(row) {
     studentId: row.student_id,
     name: row.student_name,
     score: row.score || 0,
+    status: row.status || 'active',
     joinedAt: row.joined_at,
+    leftAt: row.left_at,
   };
 }
 
@@ -102,6 +104,27 @@ function getSessionQuestionIds({ module, questionCount, questionSelectionMode, s
   return shuffleQuestions(module.questions)
     .slice(0, safeQuestionCount)
     .map((question) => question.id);
+}
+
+function isMissingSchemaColumnError(error, columns = []) {
+  const message = String(error?.message || '').toLowerCase();
+  const details = String(error?.details || '').toLowerCase();
+  const combinedMessage = `${message} ${details}`;
+
+  return (
+    error?.code === 'PGRST204' ||
+    combinedMessage.includes('schema cache') ||
+    columns.some((column) => combinedMessage.includes(String(column).toLowerCase()))
+  );
+}
+
+function isResponseStatusConstraintError(error) {
+  const message = String(error?.message || '').toLowerCase();
+
+  return (
+    error?.code === '23514' &&
+    message.includes('responses_response_status_check')
+  );
 }
 
 export async function fetchSessionParticipants(sessionId) {
@@ -304,22 +327,43 @@ export async function fetchOpenStudentSession(studentId) {
     return null;
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('participants')
     .select(`
       id,
       session_id,
+      status,
       joined_at,
       sessions:session_id (*)
     `)
     .eq('student_id', studentId)
     .order('joined_at', { ascending: false });
 
+  if (error && isMissingSchemaColumnError(error, ['status'])) {
+    const fallbackResult = await supabase
+      .from('participants')
+      .select(`
+        id,
+        session_id,
+        joined_at,
+        sessions:session_id (*)
+      `)
+      .eq('student_id', studentId)
+      .order('joined_at', { ascending: false });
+
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
+
   if (error) {
     throw new Error(error.message);
   }
 
   const openParticipant = (data || []).find((participant) => {
+    if (participant.status && participant.status !== 'active') {
+      return false;
+    }
+
     const joinedSession = Array.isArray(participant.sessions)
       ? participant.sessions[0]
       : participant.sessions;
@@ -335,6 +379,19 @@ export async function fetchOpenStudentSession(studentId) {
     : openParticipant.sessions;
   const module = await fetchModuleWithQuestions(sessionRow.module_id);
   const session = await fetchSessionDetails(sessionRow.id, module);
+
+  if (session.gameType === 'classic_mcq') {
+    const participant = session.participants.find((item) => item.studentId === studentId);
+    const studentLeftSession = session.responses.some(
+      (response) =>
+        response.participantId === participant?.participantId &&
+        (response.responseStatus === 'left' || response.answer === 'LEFT_SESSION'),
+    );
+
+    if (studentLeftSession) {
+      return null;
+    }
+  }
 
   return { module, session };
 }
@@ -585,6 +642,160 @@ export async function leaveDatabaseSession({ sessionId, studentId }) {
 
   if (!data?.length) {
     throw new Error('Unable to leave session. The participant record was not removed.');
+  }
+}
+
+export async function markClassicParticipantLeft({ participant, session }) {
+  if (!session?.id || session.gameType !== 'classic_mcq' || !participant?.participantId) {
+    return;
+  }
+
+  const { error: participantError } = await supabase
+    .from('participants')
+    .update({
+      status: 'left',
+      left_at: new Date().toISOString(),
+    })
+    .eq('id', participant.participantId);
+
+  if (participantError && !isMissingSchemaColumnError(participantError, ['status', 'left_at'])) {
+    throw new Error(participantError.message);
+  }
+
+  const questionIds = session.questionIds || [];
+
+  if (!questionIds.length) {
+    return;
+  }
+
+  const { data: existingResponses, error: existingError } = await supabase
+    .from('responses')
+    .select('question_id')
+    .eq('session_id', session.id)
+    .eq('participant_id', participant.participantId);
+
+  if (existingError) {
+    throw new Error(existingError.message);
+  }
+
+  const answeredQuestionIds = new Set((existingResponses || []).map((response) => response.question_id));
+  const missedQuestionIds = questionIds.filter((questionId) => !answeredQuestionIds.has(questionId));
+
+  if (!missedQuestionIds.length) {
+    return;
+  }
+
+  const responseRows = missedQuestionIds.map((questionId) => ({
+    session_id: session.id,
+    participant_id: participant.participantId,
+    question_id: questionId,
+    submitted_answer: 'LEFT_SESSION',
+    is_correct: false,
+    score_awarded: 0,
+    answered_seconds: null,
+    response_status: 'left',
+  }));
+
+  const { error: insertError } = await supabase.from('responses').insert(responseRows);
+
+  if (insertError && isResponseStatusConstraintError(insertError)) {
+    const fallbackRows = responseRows.map((row) => ({
+      ...row,
+      response_status: 'timeout',
+    }));
+    const { error: fallbackInsertError } = await supabase.from('responses').insert(fallbackRows);
+
+    if (fallbackInsertError && fallbackInsertError.code !== '23505') {
+      throw new Error(fallbackInsertError.message);
+    }
+
+    return;
+  }
+
+  if (insertError && insertError.code !== '23505') {
+    throw new Error(insertError.message);
+  }
+}
+
+export async function markClassicParticipantActive({ participant }) {
+  if (!participant?.participantId) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from('participants')
+    .update({
+      status: 'active',
+      left_at: null,
+    })
+    .eq('id', participant.participantId);
+
+  if (error && !isMissingSchemaColumnError(error, ['status', 'left_at'])) {
+    throw new Error(error.message);
+  }
+}
+
+export async function markClassicParticipantKicked({ participant }) {
+  if (!participant?.participantId) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from('participants')
+    .update({
+      status: 'kicked',
+      left_at: new Date().toISOString(),
+    })
+    .eq('id', participant.participantId);
+
+  if (error && !isMissingSchemaColumnError(error, ['status', 'left_at'])) {
+    throw new Error(error.message);
+  }
+}
+
+export async function markClassicParticipantLeftLegacy({ participant, session }) {
+  if (!session?.id || session.gameType !== 'classic_mcq' || !participant?.participantId) {
+    return;
+  }
+
+  const questionIds = session.questionIds || [];
+
+  if (!questionIds.length) {
+    return;
+  }
+
+  const { data: existingResponses, error: existingError } = await supabase
+    .from('responses')
+    .select('question_id')
+    .eq('session_id', session.id)
+    .eq('participant_id', participant.participantId);
+
+  if (existingError) {
+    throw new Error(existingError.message);
+  }
+
+  const answeredQuestionIds = new Set((existingResponses || []).map((response) => response.question_id));
+  const missedQuestionIds = questionIds.filter((questionId) => !answeredQuestionIds.has(questionId));
+
+  if (!missedQuestionIds.length) {
+    return;
+  }
+
+  const { error: insertError } = await supabase.from('responses').insert(
+    missedQuestionIds.map((questionId) => ({
+      session_id: session.id,
+      participant_id: participant.participantId,
+      question_id: questionId,
+      submitted_answer: 'LEFT_SESSION',
+      is_correct: false,
+      score_awarded: 0,
+      answered_seconds: null,
+      response_status: 'timeout',
+    })),
+  );
+
+  if (insertError && insertError.code !== '23505') {
+    throw new Error(insertError.message);
   }
 }
 
@@ -926,10 +1137,17 @@ export async function endClassicSessionIfAllCompleted(session) {
   }
 
   const questionIds = session.questionIds || [];
-  const participantIds = (session.participants || []).map((participant) => participant.participantId);
+  const activeParticipants = (session.participants || []).filter(
+    (participant) => (participant.status || 'active') === 'active',
+  );
+  const participantIds = activeParticipants.map((participant) => participant.participantId);
 
-  if (!questionIds.length || !participantIds.length) {
+  if (!questionIds.length) {
     return null;
+  }
+
+  if (!participantIds.length) {
+    return updateDatabaseSessionStatus(session.id, 'ended', session.currentQuestionIndex || 0);
   }
 
   const { data, error } = await supabase
