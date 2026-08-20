@@ -153,6 +153,7 @@ async function createTeacher(user, profile) {
 }
 
 async function registerAccount(profile, role) {
+  const email = profile.email.trim().toLowerCase();
   const response = await fetch(`${backendUrl}/api/auth/register`, {
     method: 'POST',
     headers: {
@@ -160,7 +161,7 @@ async function registerAccount(profile, role) {
     },
     body: JSON.stringify({
       role,
-      email: profile.email.trim().toLowerCase(),
+      email,
       password: profile.password,
       name: profile.name.trim(),
       birthday: profile.birthday,
@@ -176,7 +177,29 @@ async function registerAccount(profile, role) {
     throw new Error(result.error || 'Registration failed.');
   }
 
-  return result.user;
+  let confirmationEmailError = '';
+
+  try {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login?confirmed=1`,
+      },
+    });
+
+    if (error) {
+      confirmationEmailError = error.message;
+    }
+  } catch (error) {
+    confirmationEmailError = error.message;
+  }
+
+  return {
+    ...result.user,
+    confirmationEmailSent: !confirmationEmailError,
+    confirmationEmailError,
+  };
 }
 
 export async function registerStudent(profile) {
@@ -196,7 +219,18 @@ export async function loginUser(credentials) {
   });
 
   if (error) {
+    const message = error.message || '';
+
+    if (message.toLowerCase().includes('email not confirmed')) {
+      throw new Error('Please confirm your email before logging in. Check your inbox for the confirmation link.');
+    }
+
     throw new Error(error.message);
+  }
+
+  if (!data.user.email_confirmed_at) {
+    await supabase.auth.signOut();
+    throw new Error('Please confirm your email before logging in. Check your inbox for the confirmation link.');
   }
 
   const user = await fetchAccount(data.user.id);

@@ -90,6 +90,12 @@ function getInitialJoinCode() {
   return new URLSearchParams(window.location.search).get('join')?.trim().toUpperCase() || '';
 }
 
+function getInitialFeedback() {
+  return new URLSearchParams(window.location.search).get('confirmed') === '1'
+    ? 'Email confirmed. You can login now.'
+    : '';
+}
+
 function clearJoinCodeFromUrl() {
   const url = new URL(window.location.href);
 
@@ -155,7 +161,7 @@ export default function App() {
     email: '',
     role: 'Teacher',
   });
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState(getInitialFeedback);
   const [loadingModules, setLoadingModules] = useState(false);
   const [moduleBusyMessage, setModuleBusyMessage] = useState('');
   const [editingQuestionId, setEditingQuestionId] = useState(null);
@@ -1194,7 +1200,11 @@ export default function App() {
       await logoutUser();
       setCurrentUser(null);
       setStudent(null);
-      setFeedback('Student account registered successfully. Please login.');
+      setFeedback(
+        data.user.confirmationEmailSent
+          ? 'Student account created. Please check your email and confirm the account before logging in.'
+          : `Student account created, but the confirmation email was not sent automatically. ${data.user.confirmationEmailError || 'Please check Supabase email settings.'}`,
+      );
       setPage('login');
       syncPublicPath('login', { replace: true });
     } catch (error) {
@@ -1212,7 +1222,11 @@ export default function App() {
       setCurrentUser(null);
       setStudent(null);
       setModules(initialModules);
-      setFeedback('Teacher account registered successfully. Please login.');
+      setFeedback(
+        data.user.confirmationEmailSent
+          ? 'Teacher account created. Please check your email and confirm the account before logging in.'
+          : `Teacher account created, but the confirmation email was not sent automatically. ${data.user.confirmationEmailError || 'Please check Supabase email settings.'}`,
+      );
       setPage('login');
       syncPublicPath('login', { replace: true });
     } catch (error) {
