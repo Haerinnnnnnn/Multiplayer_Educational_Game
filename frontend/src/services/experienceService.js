@@ -95,3 +95,22 @@ export async function fetchStudentExperience(studentId) {
     totalExp: data?.total_exp || 0,
   };
 }
+
+export async function fetchStudentExperienceLeaderboard(limit = 10) {
+  const { data, error } = await supabase.rpc('get_student_exp_leaderboard', {
+    limit_count: limit,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data || []).map((student, index) => ({
+    id: student.student_id,
+    studentCode: student.student_code,
+    name: student.student_name || 'Student',
+    totalExp: student.total_exp || 0,
+    level: student.level || 1,
+    rank: index + 1,
+  }));
+}

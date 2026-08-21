@@ -4,7 +4,18 @@ function getGameTypeLabel(gameType) {
   return gameType === 'qr_pair_match' ? 'QR Pair Match' : 'Classic MCQ';
 }
 
-function toNotification(session, module, teacher) {
+function getTopicText(topics = []) {
+  if (!topics.length) {
+    return 'Unassigned';
+  }
+
+  return topics
+    .map((topic) => topic.title || 'Unassigned')
+    .filter(Boolean)
+    .join(', ');
+}
+
+function toNotification(session, module, teacher, topics = []) {
   return {
     id: session.id,
     type: 'session_opened',
@@ -16,9 +27,10 @@ function toNotification(session, module, teacher) {
     moduleId: module?.id,
     moduleCode: module?.module_code || '-',
     moduleTitle: module?.title || 'Learning Module',
+    topicTitle: getTopicText(topics),
+    topics,
     teacherName: teacher?.name || 'Teacher',
     createdAt: session.created_at,
-    message: `${teacher?.name || 'Teacher'} opened a ${getGameTypeLabel(session.game_type)} session for ${module?.title || 'your module'}.`,
   };
 }
 
@@ -85,10 +97,85 @@ export async function fetchStudentSessionNotifications(studentId) {
     return collection;
   }, new Map());
 
+  const selectedQuestionIds = [
+    ...new Set(
+      sessions
+        .flatMap((session) => (Array.isArray(session.question_ids) ? session.question_ids : []))
+        .map((questionId) => Number(questionId))
+        .filter(Boolean),
+    ),
+  ];
+
+  const questionsResult = selectedQuestionIds.length
+    ? await supabase
+        .from('questions')
+        .select('id, chapter_id')
+        .in('id', selectedQuestionIds)
+    : { data: [], error: null };
+
+  if (questionsResult.error) {
+    throw new Error(questionsResult.error.message);
+  }
+
+  const questionsById = (questionsResult.data || []).reduce((collection, question) => {
+    collection.set(Number(question.id), question);
+    return collection;
+  }, new Map());
+
+  const chapterIds = [
+    ...new Set(
+      (questionsResult.data || [])
+        .map((question) => Number(question.chapter_id))
+        .filter(Boolean),
+    ),
+  ];
+
+  const chaptersResult = chapterIds.length
+    ? await supabase
+        .from('chapters')
+        .select('id, chapter_code, title')
+        .in('id', chapterIds)
+    : { data: [], error: null };
+
+  if (chaptersResult.error) {
+    throw new Error(chaptersResult.error.message);
+  }
+
+  const chaptersById = (chaptersResult.data || []).reduce((collection, chapter) => {
+    collection.set(Number(chapter.id), {
+      id: chapter.id,
+      code: chapter.chapter_code,
+      title: chapter.title,
+    });
+    return collection;
+  }, new Map());
+
+  const topicsBySessionId = sessions.reduce((collection, session) => {
+    const topicMap = new Map();
+
+    (Array.isArray(session.question_ids) ? session.question_ids : []).forEach((questionId) => {
+      const question = questionsById.get(Number(questionId));
+      const chapter = question?.chapter_id ? chaptersById.get(Number(question.chapter_id)) : null;
+      const topicKey = chapter?.id || 'unassigned';
+
+      if (!topicMap.has(topicKey)) {
+        topicMap.set(topicKey, chapter || { id: null, code: 'UNASSIGNED', title: 'Unassigned' });
+      }
+    });
+
+    collection.set(session.id, [...topicMap.values()]);
+    return collection;
+  }, new Map());
+
   return sessions
     .filter((session) => modulesById.has(session.module_id))
     .map((session) => {
       const module = modulesById.get(session.module_id);
-      return toNotification(session, module, teachersById.get(module?.teacher_id));
+      return toNotification(
+        session,
+        module,
+        teachersById.get(module?.teacher_id),
+        topicsBySessionId.get(session.id) || [],
+      );
     });
 }

@@ -534,12 +534,23 @@ function UsersTab({
 }
 
 function ModuleInfoModal({ info, loading, error, module, onClose }) {
+  const [selectedInfoTopicId, setSelectedInfoTopicId] = useState('');
   const displayModule = info?.module || module;
   const teacher = info?.teacher || {
     code: displayModule?.teacherCode,
     name: displayModule?.teacherName,
     email: displayModule?.teacherEmail,
   };
+  const topics = info?.topics || [];
+  const selectedTopic = topics.find((topic) => String(topic.id) === String(selectedInfoTopicId)) || topics[0];
+
+  useEffect(() => {
+    if (topics.length) {
+      setSelectedInfoTopicId(String(topics[0].id));
+    } else {
+      setSelectedInfoTopicId('');
+    }
+  }, [displayModule?.id, topics.length]);
 
   return createPortal(
     <div className="modal-backdrop admin-module-info-backdrop" role="presentation" onClick={onClose}>
@@ -567,6 +578,7 @@ function ModuleInfoModal({ info, loading, error, module, onClose }) {
         {info && (
           <div className="module-info-content">
             <div className="stats-grid module-info-stats">
+              <Stat label="Topics" value={info.totals.topics} />
               <Stat label="Questions" value={info.totals.questions} />
               <Stat label="Joined Students" value={info.totals.joinedStudents} />
               <Stat label="Sessions" value={info.totals.sessions} />
@@ -627,6 +639,85 @@ function ModuleInfoModal({ info, loading, error, module, onClose }) {
                 </div>
               ) : (
                 <p>No sessions used this module yet.</p>
+              )}
+            </section>
+
+            <section className="review-message-block module-info-block">
+              <div className="module-info-heading-row">
+                <div>
+                  <strong>Topics And Questions</strong>
+                  <p>Choose a topic to view the questions inside this module.</p>
+                </div>
+                {info.totals.deletedTopics > 0 && (
+                  <span className="lock-badge deleted">{info.totals.deletedTopics} deleted topics</span>
+                )}
+              </div>
+
+              {topics.length > 0 ? (
+                <div className="admin-topic-viewer">
+                  <div className="admin-topic-list">
+                    {topics.map((topic) => (
+                      <button
+                        className={
+                          String(selectedTopic?.id) === String(topic.id)
+                            ? 'admin-topic-button active'
+                            : 'admin-topic-button'
+                        }
+                        key={topic.id}
+                        type="button"
+                        onClick={() => setSelectedInfoTopicId(String(topic.id))}
+                      >
+                        <span>
+                          <strong>{topic.chapterCode || 'Topic'}</strong>
+                          {topic.isDeleted && <em>Deleted</em>}
+                        </span>
+                        <b>{topic.title}</b>
+                        <small>{topic.questionCount || topic.questions?.length || 0} questions</small>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="admin-topic-question-panel">
+                    <div className="admin-topic-question-header">
+                      <div>
+                        <p className="eyebrow">{selectedTopic?.chapterCode || 'Topic'}</p>
+                        <h3>{selectedTopic?.title || 'No topic selected'}</h3>
+                        <p>{selectedTopic?.description || 'No topic description.'}</p>
+                      </div>
+                      {selectedTopic?.isDeleted && <span className="lock-badge deleted">Deleted Topic</span>}
+                    </div>
+
+                    <div className="table-panel module-info-table admin-topic-question-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>No.</th>
+                            <th>ID</th>
+                            <th>Question</th>
+                            <th>Answer</th>
+                            <th>Explanation</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(selectedTopic?.questions || []).map((question, index) => (
+                            <tr key={question.id}>
+                              <td>{index + 1}</td>
+                              <td>{question.questionCode || `Q${String(question.id).padStart(3, '0')}`}</td>
+                              <td>{question.question}</td>
+                              <td>{question.correctAnswer}</td>
+                              <td>{question.explanation || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {(selectedTopic?.questions || []).length === 0 && (
+                        <EmptyState text="No questions inside this topic yet." />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p>No topics created for this module yet.</p>
               )}
             </section>
 
@@ -1064,6 +1155,7 @@ function SessionsTab({ error, loading, onRefresh, sessions }) {
             <tr>
               <th>Session Code</th>
               <th>Module</th>
+              <th>Topic</th>
               <th>Teacher</th>
               <th>Game Type</th>
               <th>Status</th>
@@ -1083,6 +1175,10 @@ function SessionsTab({ error, loading, onRefresh, sessions }) {
                 <td>
                   {session.moduleTitle}
                   <p className="muted table-subtext">{session.moduleCode}</p>
+                </td>
+                <td>
+                  {session.topicTitle || '-'}
+                  {session.topicCode && <p className="muted table-subtext">{session.topicCode}</p>}
                 </td>
                 <td>
                   {session.teacherName}

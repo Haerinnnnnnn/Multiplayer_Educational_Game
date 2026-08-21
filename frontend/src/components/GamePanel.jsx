@@ -343,7 +343,9 @@ function QrPairGamePanel({
         {role === 'decoy_answer_holder' && (
           <p className="muted">This is a decoy answer for this round.</p>
         )}
-        <img className="qr-code-image answer-holder-qr" src={answerQrUrl} alt="Answer QR code" />
+        <div className="answer-holder-qr-wrap">
+          <img className="qr-code-image answer-holder-qr" src={answerQrUrl} alt="Answer QR code" />
+        </div>
         <p className="muted">
           Stay on this screen until all question holders finish or time runs out.
         </p>
@@ -484,6 +486,7 @@ function useResumeCountdown(isPaused) {
   const previousPausedRef = useRef(isPaused);
   const resumeStartedAtRef = useRef(null);
   const [resumeCountdown, setResumeCountdown] = useState(null);
+  const resumeCountdownStarting = previousPausedRef.current && !isPaused;
 
   useEffect(() => {
     if (previousPausedRef.current && !isPaused) {
@@ -516,9 +519,9 @@ function useResumeCountdown(isPaused) {
   }, [resumeCountdown]);
 
   return {
-    resumeCountdown,
-    resumeCountdownActive: resumeCountdown !== null,
-    resumeStartedAt: resumeStartedAtRef.current,
+    resumeCountdown: resumeCountdown ?? (resumeCountdownStarting ? 3 : null),
+    resumeCountdownActive: resumeCountdown !== null || resumeCountdownStarting,
+    resumeStartedAt: resumeStartedAtRef.current || (resumeCountdownStarting ? Date.now() : null),
   };
 }
 

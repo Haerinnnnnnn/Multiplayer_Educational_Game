@@ -9,7 +9,7 @@ import {
   joinPublicModule,
   requestPrivateModule,
 } from '../services/moduleAccessService.js';
-import { getLevelProgress } from '../services/experienceService.js';
+import { fetchStudentExperienceLeaderboard, getLevelProgress } from '../services/experienceService.js';
 import { fetchStudentActivity } from '../services/studentActivityService.js';
 import { fetchStudentSessionNotifications } from '../services/studentNotificationService.js';
 
@@ -56,6 +56,61 @@ function StudentLevelCard({ student }) {
           <span>Max tracked level reached</span>
         )}
       </div>
+    </section>
+  );
+}
+
+function StudentExpLeaderboard({ currentStudentId, error, leaderboard, loading }) {
+  return (
+    <section className="student-exp-leaderboard">
+      <div className="student-exp-leaderboard-header">
+        <div>
+          <p className="eyebrow">Leaderboard</p>
+          <h2>Top EXP Players</h2>
+        </div>
+        <span>{leaderboard.length}</span>
+      </div>
+
+      {loading && <p className="muted">Loading leaderboard...</p>}
+      {!loading && error && <p className="leaderboard-error">{error}</p>}
+      {!loading && !error && !leaderboard.length && (
+        <p className="muted">No EXP ranking yet.</p>
+      )}
+      {!loading && !error && leaderboard.length > 0 && (
+        <ol className="student-exp-leaderboard-list">
+          {leaderboard.map((player) => (
+            <li
+              className={player.id === currentStudentId ? 'current-student' : ''}
+              key={player.id || player.rank}
+            >
+              <strong>#{player.rank}</strong>
+              <span>{player.name}</span>
+              <b>{player.totalExp} EXP</b>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function StudentLeaderboardPage({ currentStudentId, error, leaderboard, loading }) {
+  return (
+    <section className="student-leaderboard-page student-dashboard-panel-in">
+      <div className="student-leaderboard-hero">
+        <div>
+          <p className="eyebrow">EXP Ranking</p>
+          <h1>Student Leaderboard</h1>
+          <p>See who has earned the most experience points across the game.</p>
+        </div>
+        <span>{leaderboard.length} players</span>
+      </div>
+      <StudentExpLeaderboard
+        currentStudentId={currentStudentId}
+        error={error}
+        leaderboard={leaderboard}
+        loading={loading}
+      />
     </section>
   );
 }
@@ -157,8 +212,8 @@ function StudentNotificationList({ compact = false, notifications, onDismiss, on
           <div>
             <p className="eyebrow">{notification.moduleCode} · {notification.gameTypeLabel}</p>
             <h3>{notification.moduleTitle}</h3>
-            <p>{notification.message}</p>
-            <small>Session {notification.sessionCode} · {formatDate(notification.createdAt)}</small>
+            <p>Topic: {notification.topicTitle || 'Unassigned'}</p>
+            <small>Session {notification.sessionCode}</small>
           </div>
           <div className="student-notification-actions">
             <button
@@ -439,6 +494,9 @@ export function StudentDashboardPage({
   const [moduleFeedback, setModuleFeedback] = useState('');
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardError, setLeaderboardError] = useState('');
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState(() =>
     getDismissedNotificationIds(student?.id),
   );
@@ -550,6 +608,45 @@ export function StudentDashboardPage({
     };
   }, [student?.id]);
 
+  useEffect(() => {
+    if (!student?.id) {
+      return undefined;
+    }
+
+    let active = true;
+
+    async function loadLeaderboard({ quiet = false } = {}) {
+      if (!quiet) {
+        setLeaderboardLoading(true);
+      }
+      setLeaderboardError('');
+
+      try {
+        const data = await fetchStudentExperienceLeaderboard(10);
+
+        if (active) {
+          setLeaderboard(data);
+        }
+      } catch (error) {
+        if (active) {
+          setLeaderboardError(error.message);
+        }
+      } finally {
+        if (active && !quiet) {
+          setLeaderboardLoading(false);
+        }
+      }
+    }
+
+    loadLeaderboard();
+    const refreshTimer = window.setInterval(() => loadLeaderboard({ quiet: true }), 12000);
+
+    return () => {
+      active = false;
+      window.clearInterval(refreshTimer);
+    };
+  }, [student?.id]);
+
   function dismissNotification(notificationId) {
     const nextIds = [...dismissedNotificationIds, notificationId];
     setDismissedNotificationIds(nextIds);
@@ -623,6 +720,13 @@ export function StudentDashboardPage({
             onClick={() => setActiveTab('modules')}
           >
             Modules
+          </button>
+          <button
+            className={activeTab === 'leaderboard' ? 'student-tab active' : 'student-tab'}
+            type="button"
+            onClick={() => setActiveTab('leaderboard')}
+          >
+            Leaderboard
           </button>
           <span className={`student-tab-indicator ${activeTab}`} />
         </nav>
@@ -714,6 +818,14 @@ export function StudentDashboardPage({
               onRequestPrivate={requestModule}
             />
           </>
+        )}
+        {activeTab === 'leaderboard' && (
+          <StudentLeaderboardPage
+            currentStudentId={student?.id}
+            error={leaderboardError}
+            leaderboard={leaderboard}
+            loading={leaderboardLoading}
+          />
         )}
         {activeTab === 'settings' && (
           <StudentSettings student={student} onUpdateProfile={onUpdateProfile} />

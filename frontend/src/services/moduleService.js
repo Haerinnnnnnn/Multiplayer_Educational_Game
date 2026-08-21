@@ -1,8 +1,9 @@
 import { supabase } from './supabaseClient.js';
 import { toQuestion } from './questionService.js';
+import { toChapter } from './chapterService.js';
 import { getLatestReviewByModule } from './moduleReviewService.js';
 
-function toModule(row, questions = [], latestReviewRequest = null) {
+function toModule(row, questions = [], latestReviewRequest = null, chapters = [], allChapters = chapters) {
   return {
     id: row.id,
     moduleCode: row.module_code,
@@ -17,6 +18,8 @@ function toModule(row, questions = [], latestReviewRequest = null) {
     lockedAt: row.locked_at,
     lockedBy: row.locked_by,
     latestReviewRequest,
+    chapters,
+    allChapters,
     questions,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -46,14 +49,34 @@ export async function fetchTeacherModules(teacherId) {
     return [];
   }
 
-  const { data: questionRows, error: questionError } = await supabase
-    .from('questions')
-    .select('*')
-    .in('module_id', moduleIds)
-    .order('created_at', { ascending: false });
+  const [questionResult, chapterResult] = await Promise.all([
+    supabase
+      .from('questions')
+      .select('*')
+      .in('module_id', moduleIds)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('chapters')
+      .select('*')
+      .in('module_id', moduleIds)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+  ]);
 
-  if (questionError) {
-    throw new Error(questionError.message);
+  if (questionResult.error) {
+    if (questionResult.error.message?.includes('chapter_id')) {
+      throw new Error('Please apply the latest chapters database migration before loading modules.');
+    }
+
+    throw new Error(questionResult.error.message);
+  }
+
+  if (chapterResult.error) {
+    if (chapterResult.error.message?.includes('chapters')) {
+      throw new Error('Please apply the latest chapters database migration before loading modules.');
+    }
+
+    throw new Error(chapterResult.error.message);
   }
 
   const { data: reviewRows, error: reviewError } = await supabase
@@ -66,9 +89,30 @@ export async function fetchTeacherModules(teacherId) {
     throw new Error(reviewError.message);
   }
 
-  const questionsByModule = (questionRows || []).reduce((collection, question) => {
+  const questionRows = questionResult.data || [];
+  const chapterRows = chapterResult.data || [];
+  const questionCountsByChapter = questionRows.reduce((collection, question) => {
+    if (question.chapter_id) {
+      collection.set(question.chapter_id, (collection.get(question.chapter_id) || 0) + 1);
+    }
+
+    return collection;
+  }, new Map());
+  const chaptersById = chapterRows.reduce((collection, chapter) => {
+    collection.set(chapter.id, toChapter(chapter, questionCountsByChapter.get(chapter.id) || 0));
+    return collection;
+  }, new Map());
+  const chaptersByModule = chapterRows.reduce((collection, chapter) => {
+    const mappedChapter = toChapter(chapter, questionCountsByChapter.get(chapter.id) || 0);
+    const moduleChapters = collection.get(chapter.module_id) || [];
+    moduleChapters.push(mappedChapter);
+    collection.set(chapter.module_id, moduleChapters);
+    return collection;
+  }, new Map());
+
+  const questionsByModule = questionRows.reduce((collection, question) => {
     const moduleQuestions = collection.get(question.module_id) || [];
-    moduleQuestions.push(toQuestion(question));
+    moduleQuestions.push(toQuestion(question, chaptersById.get(question.chapter_id) || null));
     collection.set(question.module_id, moduleQuestions);
     return collection;
   }, new Map());
@@ -79,6 +123,8 @@ export async function fetchTeacherModules(teacherId) {
       module,
       questionsByModule.get(module.id) || [],
       latestReviewByModule.get(module.id) || null,
+      (chaptersByModule.get(module.id) || []).filter((chapter) => !chapter.isDeleted),
+      chaptersByModule.get(module.id) || [],
     ),
   );
 }

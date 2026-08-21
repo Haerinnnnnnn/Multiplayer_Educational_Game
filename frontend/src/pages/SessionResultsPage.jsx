@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ResultsPanel } from '../components/ResultsPanel.jsx';
 import { AppFrame } from '../components/Layout.jsx';
 import { settleSessionExperience } from '../services/experienceService.js';
@@ -7,12 +7,13 @@ export function SessionResultsPage({ activeSession, currentUser, onBack, onExper
   const [experienceLogs, setExperienceLogs] = useState([]);
   const [experienceError, setExperienceError] = useState('');
   const [settlingExperience, setSettlingExperience] = useState(false);
+  const settledSessionRef = useRef(null);
 
   useEffect(() => {
     let active = true;
 
     async function settleExperience() {
-      if (!activeSession?.id || activeSession.status !== 'ended') {
+      if (!activeSession?.id || settledSessionRef.current === activeSession.id) {
         return;
       }
 
@@ -26,6 +27,7 @@ export function SessionResultsPage({ activeSession, currentUser, onBack, onExper
           return;
         }
 
+        settledSessionRef.current = activeSession.id;
         setExperienceLogs(logs);
         onExperienceSettled?.(logs);
       } catch (error) {
@@ -44,7 +46,7 @@ export function SessionResultsPage({ activeSession, currentUser, onBack, onExper
     return () => {
       active = false;
     };
-  }, [activeSession?.id, activeSession?.status, onExperienceSettled]);
+  }, [activeSession?.id, onExperienceSettled]);
 
   return (
     <AppFrame title="Result" onHome={onBack}>

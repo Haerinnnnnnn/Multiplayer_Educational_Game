@@ -43,6 +43,45 @@ function getExperienceLogForParticipant(experienceLogs, participant) {
   );
 }
 
+function getGameTypeLabel(gameType) {
+  return gameType === 'qr_pair_match' ? 'QR Pair Match' : 'Classic MCQ';
+}
+
+function getSessionQuestions(session) {
+  const questionIds = (session?.questionIds || []).map((questionId) => Number(questionId));
+  const questionIdSet = new Set(questionIds);
+  const sourceQuestions = session?.sessionQuestions?.length
+    ? session.sessionQuestions
+    : session?.module?.questions || [];
+
+  if (!questionIds.length) {
+    return sourceQuestions;
+  }
+
+  return questionIds
+    .map((questionId) => sourceQuestions.find((question) => Number(question.id) === Number(questionId)))
+    .filter(Boolean)
+    .concat(
+      sourceQuestions.filter((question) => !questionIdSet.has(Number(question.id))),
+    )
+    .filter((question, index, collection) =>
+      collection.findIndex((item) => Number(item.id) === Number(question.id)) === index,
+    )
+    .filter((question) => questionIdSet.has(Number(question.id)));
+}
+
+function getQuestionTopicLabel(question, session) {
+  if (question.chapterTitle) {
+    return question.chapterCode
+      ? `${question.chapterCode} - ${question.chapterTitle}`
+      : question.chapterTitle;
+  }
+
+  return session?.topicTitle && session.topicTitle !== '-'
+    ? session.topicTitle
+    : 'Unassigned';
+}
+
 export function ResultsPanel({
   currentUser,
   experienceError = '',
@@ -68,6 +107,7 @@ export function ResultsPanel({
   const currentUserExpLog = currentParticipant
     ? getExperienceLogForParticipant(experienceLogs, currentParticipant)
     : null;
+  const sessionQuestions = getSessionQuestions(session);
 
   return (
     <div className="results-podium-shell">
@@ -77,6 +117,11 @@ export function ResultsPanel({
             <p className="eyebrow">Session Result</p>
             <h2>Podium</h2>
             <p className="muted">Session Code: {session.code}</p>
+            <div className="result-session-meta">
+              <span>Module: {session.moduleTitle || '-'}</span>
+              <span>Topic: {session.topicTitle || 'Unassigned'}</span>
+              <span>{getGameTypeLabel(session.gameType)}</span>
+            </div>
           </div>
           {currentUserRank > 0 && (
             <span className="podium-rank-pill">Your Rank: {getRankLabel(currentUserRank)}</span>
@@ -159,6 +204,57 @@ export function ResultsPanel({
           <p className="muted results-extra-note">
             {otherPlayers.length} more student{otherPlayers.length === 1 ? '' : 's'} shown under the podium.
           </p>
+        )}
+      </section>
+
+      <section className="panel results-question-panel">
+        <div className="results-question-header">
+          <div>
+            <p className="eyebrow">Session Questions</p>
+            <h2>Questions And Explanations</h2>
+            <p className="muted">
+              Showing only the questions selected for this session.
+            </p>
+          </div>
+          <div className="result-session-meta compact">
+            <span>Module: {session.moduleTitle || '-'}</span>
+            <span>Topic: {session.topicTitle || 'Unassigned'}</span>
+          </div>
+        </div>
+
+        {sessionQuestions.length > 0 ? (
+          <div className="results-question-list">
+            {sessionQuestions.map((question, index) => (
+              <article className="results-question-card" key={question.id}>
+                <div className="results-question-topline">
+                  <span className="result-rank-number">{index + 1}</span>
+                  <div>
+                    <strong>{question.questionCode || `Q${index + 1}`}</strong>
+                    <p>{getQuestionTopicLabel(question, session)}</p>
+                  </div>
+                </div>
+                <div className="results-question-body">
+                  <div>
+                    <span>Question</span>
+                    <p>{question.question || '-'}</p>
+                  </div>
+                  <div>
+                    <span>Correct Answer</span>
+                    <p>
+                      {question.correctOption ? `${question.correctOption}. ` : ''}
+                      {question.correctAnswer || question.answer || '-'}
+                    </p>
+                  </div>
+                  <div className="results-question-explanation">
+                    <span>Explanation</span>
+                    <p>{question.explanation || 'No explanation provided for this question.'}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyState text="No question details found for this session." />
         )}
       </section>
     </div>

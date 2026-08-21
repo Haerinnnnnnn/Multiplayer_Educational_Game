@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient.js';
 import { backendUrl } from './apiConfig.js';
+import { toChapter } from './chapterService.js';
 import { toQuestion } from './questionService.js';
 import { getLatestReviewByModule } from './moduleReviewService.js';
 
@@ -39,7 +40,7 @@ function toTeacherUser(teacher) {
   };
 }
 
-function toAdminModule(module, teacher, questions = [], latestReviewRequest = null) {
+function toAdminModule(module, teacher, questions = [], latestReviewRequest = null, chapters = []) {
   return {
     id: module.id,
     moduleCode: module.module_code,
@@ -52,6 +53,9 @@ function toAdminModule(module, teacher, questions = [], latestReviewRequest = nu
     teacherEmail: teacher?.email || '-',
     questions,
     questionCount: questions.length,
+    chapters,
+    topicCount: chapters.filter((chapter) => !chapter.isDeleted).length,
+    deletedTopicCount: chapters.filter((chapter) => chapter.isDeleted).length,
     latestReviewRequest,
     isLocked: Boolean(module.is_locked),
     isDeleted: Boolean(module.is_deleted),
@@ -85,10 +89,15 @@ export async function fetchAdminUsers() {
 }
 
 export async function fetchAdminModules() {
-  const [modulesResult, teachersResult, questionsResult, reviewsResult] = await Promise.all([
+  const [modulesResult, teachersResult, questionsResult, chaptersResult, reviewsResult] = await Promise.all([
     supabase.from('modules').select('*').order('created_at', { ascending: false }),
     supabase.from('teachers').select('id, teacher_code, name, email'),
     supabase.from('questions').select('*').order('created_at', { ascending: false }),
+    supabase
+      .from('chapters')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
     supabase.from('module_review_requests').select('*').order('submitted_at', { ascending: false }),
   ]);
 
@@ -104,6 +113,10 @@ export async function fetchAdminModules() {
     throw new Error(questionsResult.error.message);
   }
 
+  if (chaptersResult.error) {
+    throw new Error(chaptersResult.error.message);
+  }
+
   if (reviewsResult.error) {
     throw new Error(reviewsResult.error.message);
   }
@@ -113,9 +126,29 @@ export async function fetchAdminModules() {
     return collection;
   }, new Map());
 
+  const questionCountsByChapter = (questionsResult.data || []).reduce((collection, question) => {
+    if (question.chapter_id) {
+      collection.set(question.chapter_id, (collection.get(question.chapter_id) || 0) + 1);
+    }
+
+    return collection;
+  }, new Map());
+
+  const chaptersById = (chaptersResult.data || []).reduce((collection, chapter) => {
+    collection.set(chapter.id, toChapter(chapter, questionCountsByChapter.get(chapter.id) || 0));
+    return collection;
+  }, new Map());
+
+  const chaptersByModule = (chaptersResult.data || []).reduce((collection, chapter) => {
+    const currentChapters = collection.get(chapter.module_id) || [];
+    currentChapters.push(toChapter(chapter, questionCountsByChapter.get(chapter.id) || 0));
+    collection.set(chapter.module_id, currentChapters);
+    return collection;
+  }, new Map());
+
   const questionsByModule = (questionsResult.data || []).reduce((collection, question) => {
     const currentQuestions = collection.get(question.module_id) || [];
-    collection.set(question.module_id, [...currentQuestions, toQuestion(question)]);
+    collection.set(question.module_id, [...currentQuestions, toQuestion(question, chaptersById.get(question.chapter_id) || null)]);
     return collection;
   }, new Map());
   const latestReviewByModule = getLatestReviewByModule(reviewsResult.data || []);
@@ -126,6 +159,7 @@ export async function fetchAdminModules() {
       teachersById.get(module.teacher_id),
       questionsByModule.get(module.id) || [],
       latestReviewByModule.get(module.id) || null,
+      chaptersByModule.get(module.id) || [],
     ),
   );
 }
@@ -135,11 +169,41 @@ function getSessionQuestionTotal(session) {
   return selectedQuestionIds.length || session.question_count || 0;
 }
 
-function toModuleSessionInfo(session, participantCount, roundCount) {
+function getSessionTopicInfo(session, questionsById) {
+  const selectedQuestionIds = Array.isArray(session.question_ids) ? session.question_ids : [];
+  const topicMap = selectedQuestionIds.reduce((collection, questionId) => {
+    const question = questionsById.get(Number(questionId));
+    const topicKey = question?.chapterId || 'unassigned';
+
+    if (!collection.has(topicKey)) {
+      collection.set(topicKey, {
+        id: question?.chapterId || null,
+        code: question?.chapterCode || (question?.chapterId ? null : 'UNASSIGNED'),
+        title: question?.chapterTitle || 'Unassigned',
+      });
+    }
+
+    return collection;
+  }, new Map());
+  const topics = [...topicMap.values()];
+
+  return {
+    topicCode: topics.length === 1 ? topics[0].code : '',
+    topicTitle: topics.length === 0 ? '-' : topics.map((topic) => topic.title).join(', '),
+    topics,
+  };
+}
+
+function toModuleSessionInfo(session, participantCount, roundCount, questionsById = new Map()) {
+  const topicInfo = getSessionTopicInfo(session, questionsById);
+
   return {
     id: session.id,
     code: session.session_code,
     status: session.status,
+    topicCode: topicInfo.topicCode,
+    topicTitle: topicInfo.topicTitle,
+    topics: topicInfo.topics,
     gameType: session.game_type || 'classic_mcq',
     questionCount: getSessionQuestionTotal(session),
     questionSelectionMode: session.question_selection_mode || 'random',
@@ -153,10 +217,12 @@ function toModuleSessionInfo(session, participantCount, roundCount) {
 }
 
 export async function fetchAdminSessions() {
-  const [sessionsResult, modulesResult, teachersResult] = await Promise.all([
+  const [sessionsResult, modulesResult, teachersResult, questionsResult, chaptersResult] = await Promise.all([
     supabase.from('sessions').select('*').order('created_at', { ascending: false }),
     supabase.from('modules').select('id, module_code, title, teacher_id'),
     supabase.from('teachers').select('id, teacher_code, name, email'),
+    supabase.from('questions').select('*'),
+    supabase.from('chapters').select('*'),
   ]);
 
   if (sessionsResult.error) {
@@ -169,6 +235,14 @@ export async function fetchAdminSessions() {
 
   if (teachersResult.error) {
     throw new Error(teachersResult.error.message);
+  }
+
+  if (questionsResult.error) {
+    throw new Error(questionsResult.error.message);
+  }
+
+  if (chaptersResult.error) {
+    throw new Error(chaptersResult.error.message);
   }
 
   const sessionRows = sessionsResult.data || [];
@@ -196,6 +270,14 @@ export async function fetchAdminSessions() {
     collection.set(teacher.id, teacher);
     return collection;
   }, new Map());
+  const chaptersById = (chaptersResult.data || []).reduce((collection, chapter) => {
+    collection.set(chapter.id, toChapter(chapter));
+    return collection;
+  }, new Map());
+  const questionsById = (questionsResult.data || []).reduce((collection, question) => {
+    collection.set(question.id, toQuestion(question, chaptersById.get(question.chapter_id) || null));
+    return collection;
+  }, new Map());
   const participantCountBySession = (participantsResult.data || []).reduce((collection, participant) => {
     collection.set(participant.session_id, (collection.get(participant.session_id) || 0) + 1);
     return collection;
@@ -212,6 +294,7 @@ export async function fetchAdminSessions() {
       session,
       participantCountBySession.get(session.id) || 0,
       roundCountBySession.get(session.id) || 0,
+      questionsById,
     );
 
     return {
@@ -314,6 +397,24 @@ export async function fetchAdminModuleInfo(module) {
     return collection;
   }, {});
 
+  const topics = (module.chapters || []).map((chapter) => ({
+    ...chapter,
+    questions: (module.questions || []).filter((question) => Number(question.chapterId) === Number(chapter.id)),
+  }));
+  const unassignedQuestions = (module.questions || []).filter((question) => !question.chapterId);
+
+  if (unassignedQuestions.length) {
+    topics.push({
+      id: 'unassigned',
+      chapterCode: 'UNASSIGNED',
+      title: 'Questions Without Topic',
+      description: 'Questions that are not linked to a topic yet.',
+      isDeleted: false,
+      questionCount: unassignedQuestions.length,
+      questions: unassignedQuestions,
+    });
+  }
+
   return {
     module,
     teacher: {
@@ -324,9 +425,12 @@ export async function fetchAdminModuleInfo(module) {
     },
     joinedStudents,
     sessions: sessionInfo,
+    topics,
     gameTypeSummary: Object.values(gameTypeSummary),
     totals: {
       questions: module.questionCount || module.questions?.length || 0,
+      topics: (module.chapters || []).filter((chapter) => !chapter.isDeleted).length,
+      deletedTopics: (module.chapters || []).filter((chapter) => chapter.isDeleted).length,
       joinedStudents: joinedStudents.length,
       sessions: sessionInfo.length,
       rounds: sessionInfo.reduce((total, session) => total + session.roundCount, 0),

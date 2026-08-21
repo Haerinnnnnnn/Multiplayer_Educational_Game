@@ -35,18 +35,60 @@ function toModule(row, questions = []) {
   };
 }
 
-function toSession(row, participants = [], questionIds = []) {
+function getSessionTopicInfo(module, questionIds = []) {
+  const questions = module?.questions || [];
+  const selectedQuestionIds = new Set((questionIds || []).map((questionId) => Number(questionId)));
+  const selectedQuestions = questions.filter((question) => selectedQuestionIds.has(Number(question.id)));
+  const topicMap = selectedQuestions.reduce((collection, question) => {
+    const topicKey = question.chapterId || 'unassigned';
+
+    if (!collection.has(topicKey)) {
+      collection.set(topicKey, {
+        id: question.chapterId || null,
+        code: question.chapterCode || (question.chapterId ? null : 'UNASSIGNED'),
+        title: question.chapterTitle || 'Unassigned',
+      });
+    }
+
+    return collection;
+  }, new Map());
+  const topics = [...topicMap.values()];
+
+  return {
+    topicId: topics.length === 1 ? topics[0].id : null,
+    topicCode: topics.length === 1 ? topics[0].code : '',
+    topicTitle: topics.length === 0 ? '-' : topics.map((topic) => topic.title).join(', '),
+    topics,
+  };
+}
+
+function toSession(row, participants = [], questionIds = [], module = null) {
   const storedQuestionIds = Array.isArray(row.question_ids)
     ? row.question_ids.map((questionId) => Number(questionId))
     : [];
+  const resolvedQuestionIds = storedQuestionIds.length ? storedQuestionIds : questionIds;
+  const topicInfo = getSessionTopicInfo(module, resolvedQuestionIds);
+  const selectedQuestionSet = new Set(resolvedQuestionIds.map((questionId) => Number(questionId)));
+  const sessionQuestions = (module?.questions || []).filter((question) =>
+    selectedQuestionSet.has(Number(question.id)),
+  );
+  const orderedSessionQuestions = resolvedQuestionIds
+    .map((questionId) => sessionQuestions.find((question) => Number(question.id) === Number(questionId)))
+    .filter(Boolean);
 
   return {
     id: row.id,
     code: row.session_code,
     moduleId: row.module_id,
+    moduleCode: module?.moduleCode || module?.module_code || '',
+    moduleTitle: module?.title || '',
     teacherId: row.teacher_id,
     questionCount: row.question_count,
-    questionIds: storedQuestionIds.length ? storedQuestionIds : questionIds,
+    questionIds: resolvedQuestionIds,
+    topicId: topicInfo.topicId,
+    topicCode: topicInfo.topicCode,
+    topicTitle: topicInfo.topicTitle,
+    topics: topicInfo.topics,
     questionSelectionMode: row.question_selection_mode || 'random',
     gameType: row.game_type || 'classic_mcq',
     timerEnabled: row.timer_enabled !== false,
@@ -59,6 +101,8 @@ function toSession(row, participants = [], questionIds = []) {
     participants,
     responses: [],
     qrPair: null,
+    module,
+    sessionQuestions: orderedSessionQuestions,
     createdAt: row.created_at ? new Date(row.created_at).toLocaleString() : '',
     createdAtRaw: row.created_at,
     endedAt: row.ended_at,
@@ -160,7 +204,11 @@ async function fetchSessionResponses(sessionId, participants = []) {
 }
 
 export async function fetchModuleWithQuestions(moduleId) {
-  const [{ data: moduleRow, error: moduleError }, { data: questionRows, error: questionError }] =
+  const [
+    { data: moduleRow, error: moduleError },
+    { data: questionRows, error: questionError },
+    { data: chapterRows, error: chapterError },
+  ] =
     await Promise.all([
       supabase.from('modules').select('*').eq('id', moduleId).single(),
       supabase
@@ -168,6 +216,12 @@ export async function fetchModuleWithQuestions(moduleId) {
         .select('*')
         .eq('module_id', moduleId)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('chapters')
+        .select('*')
+        .eq('module_id', moduleId)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true }),
     ]);
 
   if (moduleError) {
@@ -178,7 +232,30 @@ export async function fetchModuleWithQuestions(moduleId) {
     throw new Error(questionError.message);
   }
 
-  return toModule(moduleRow, (questionRows || []).map(toQuestion));
+  if (chapterError) {
+    throw new Error(chapterError.message);
+  }
+
+  const chaptersById = (chapterRows || []).reduce((collection, chapter) => {
+    collection.set(chapter.id, {
+      id: chapter.id,
+      moduleId: chapter.module_id,
+      teacherId: chapter.teacher_id,
+      chapterCode: chapter.chapter_code,
+      title: chapter.title,
+      description: chapter.description || '',
+      sortOrder: chapter.sort_order || 0,
+      isDeleted: Boolean(chapter.is_deleted),
+      deletedAt: chapter.deleted_at,
+      deletedBy: chapter.deleted_by,
+    });
+    return collection;
+  }, new Map());
+
+  return toModule(
+    moduleRow,
+    (questionRows || []).map((question) => toQuestion(question, chaptersById.get(question.chapter_id) || null)),
+  );
 }
 
 export async function createDatabaseSession({
@@ -221,7 +298,7 @@ export async function createDatabaseSession({
       .single();
 
     if (!error) {
-      return toSession(data, [], sessionQuestionIds);
+      return toSession(data, [], sessionQuestionIds, module);
     }
 
     if (error.code !== '23505' || attempt === 2) {
@@ -311,8 +388,14 @@ export async function fetchSessionDetails(sessionId, module) {
     throw sessionError;
   }
 
+  const sessionModule = module || (data.module_id ? await fetchModuleWithQuestions(data.module_id) : null);
   const participants = await fetchSessionParticipants(sessionId);
-  const session = toSession(data, participants, getQuestionIds(module, data.question_count));
+  const session = toSession(
+    data,
+    participants,
+    getQuestionIds(sessionModule, data.question_count),
+    sessionModule,
+  );
   session.responses = await fetchSessionResponses(sessionId, participants);
 
   if (session.gameType === 'qr_pair_match') {
@@ -462,6 +545,7 @@ export async function fetchTeacherSessions(teacherId, modules = []) {
       session,
       participants,
       getQuestionIds(module, session.question_count),
+      module,
     );
     mappedSession.responses = (responsesBySession.get(session.id) || []).map((response) =>
       toResponse(response, participants),
@@ -926,7 +1010,7 @@ export async function pauseDatabaseSession(sessionId, currentQuestionIndex = 0) 
   return data;
 }
 
-export async function resumeDatabaseSession(sessionId, currentQuestionIndex = 0) {
+export async function resumeDatabaseSession(sessionId, currentQuestionIndex = 0, resumeDelaySeconds = 3) {
   const { data: currentSession, error: fetchError } = await supabase
     .from('sessions')
     .select('paused_at, total_paused_seconds')
@@ -943,6 +1027,8 @@ export async function resumeDatabaseSession(sessionId, currentQuestionIndex = 0)
         0,
       )
     : 0;
+  const countdownDelaySeconds = Math.max(Number(resumeDelaySeconds) || 0, 0);
+  const frozenSeconds = pausedSeconds + countdownDelaySeconds;
 
   const { data, error } = await supabase
     .from('sessions')
@@ -950,7 +1036,7 @@ export async function resumeDatabaseSession(sessionId, currentQuestionIndex = 0)
       status: 'live',
       current_question_index: currentQuestionIndex,
       paused_at: null,
-      total_paused_seconds: (currentSession?.total_paused_seconds || 0) + pausedSeconds,
+      total_paused_seconds: (currentSession?.total_paused_seconds || 0) + frozenSeconds,
     })
     .eq('id', sessionId)
     .eq('status', 'paused')
@@ -961,7 +1047,7 @@ export async function resumeDatabaseSession(sessionId, currentQuestionIndex = 0)
     throw new Error(error.message);
   }
 
-  if (pausedSeconds > 0) {
+  if (frozenSeconds > 0) {
     const { data: activeTurn } = await supabase
       .from('qr_pair_turns')
       .select('id, started_at')
@@ -976,7 +1062,7 @@ export async function resumeDatabaseSession(sessionId, currentQuestionIndex = 0)
         .from('qr_pair_turns')
         .update({
           started_at: new Date(
-            new Date(activeTurn.started_at).getTime() + pausedSeconds * 1000,
+            new Date(activeTurn.started_at).getTime() + frozenSeconds * 1000,
           ).toISOString(),
         })
         .eq('id', activeTurn.id);

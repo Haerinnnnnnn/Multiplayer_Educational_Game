@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient.js';
 
-export function toQuestion(row) {
+export function toQuestion(row, chapter = null) {
   const options = [
     { key: 'A', text: row.option_a || '' },
     { key: 'B', text: row.option_b || '' },
@@ -14,6 +14,10 @@ export function toQuestion(row) {
     id: row.id,
     questionCode: row.question_code,
     moduleId: row.module_id,
+    chapterId: row.chapter_id || null,
+    chapterCode: chapter?.chapterCode || null,
+    chapterTitle: chapter?.title || null,
+    chapterIsDeleted: Boolean(chapter?.isDeleted),
     teacherId: row.teacher_id,
     questionType: row.question_type || 'mcq',
     question: row.question_text,
@@ -44,6 +48,7 @@ export async function createModuleQuestion({ teacherId, moduleId, questionForm }
     .from('questions')
     .insert({
       module_id: Number(moduleId),
+      chapter_id: questionForm.chapterId ? Number(questionForm.chapterId) : null,
       teacher_id: teacherId,
       question_type: 'mcq',
       question_text: questionForm.question.trim(),
@@ -77,6 +82,7 @@ export async function createModuleQuestions({ teacherId, moduleId, questionRows 
 
     return {
       module_id: Number(moduleId),
+      chapter_id: questionForm.chapterId ? Number(questionForm.chapterId) : null,
       teacher_id: teacherId,
       question_type: 'mcq',
       question_text: questionForm.question.trim(),
@@ -115,6 +121,7 @@ export async function updateModuleQuestion(questionId, questionForm) {
     .from('questions')
     .update({
       question_text: questionForm.question.trim(),
+      chapter_id: questionForm.chapterId ? Number(questionForm.chapterId) : null,
       option_a: questionForm.optionA.trim(),
       option_b: questionForm.optionB.trim(),
       option_c: questionForm.optionC.trim(),

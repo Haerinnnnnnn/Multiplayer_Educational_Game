@@ -107,12 +107,27 @@ function clearJoinCodeFromUrl() {
   window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
+function isUsableSessionModule(module) {
+  return Boolean(module) && !module.isLocked && !module.isDeleted;
+}
+
+function getActiveChapters(module) {
+  return (module?.chapters || []).filter((chapter) => !chapter.isDeleted);
+}
+
+function getFirstChapterId(module) {
+  return getActiveChapters(module)[0]?.id || '';
+}
+
 function getDefaultSessionForm(moduleList) {
-  const defaultModule = moduleList.find((module) => !module.isLocked) || moduleList[0];
+  const defaultModule =
+    moduleList.find((module) => isUsableSessionModule(module) && getActiveChapters(module).length) ||
+    moduleList.find(isUsableSessionModule);
 
   return {
     gameType: '',
     moduleId: defaultModule?.id || '',
+    chapterId: getFirstChapterId(defaultModule),
     questionCount: 2,
     questionSelectionMode: 'random',
     roundSeconds: 60,
@@ -147,6 +162,7 @@ export default function App() {
   const [moduleForm, setModuleForm] = useState({ title: '', description: '' });
   const [questionForm, setQuestionForm] = useState({
     question: '',
+    chapterId: '',
     optionA: '',
     optionB: '',
     optionC: '',
@@ -164,6 +180,10 @@ export default function App() {
   const [feedback, setFeedback] = useState(getInitialFeedback);
   const [loadingModules, setLoadingModules] = useState(false);
   const [moduleBusyMessage, setModuleBusyMessage] = useState('');
+  const [moduleDeleteConfirm, setModuleDeleteConfirm] = useState(null);
+  const [moduleDeleteBusy, setModuleDeleteBusy] = useState(false);
+  const [questionDeleteConfirm, setQuestionDeleteConfirm] = useState(null);
+  const [questionDeleteBusy, setQuestionDeleteBusy] = useState(false);
   const [editingQuestionId, setEditingQuestionId] = useState(null);
   const [teacherDashboardInitialTab, setTeacherDashboardInitialTab] = useState('home');
   const [teacherResultBackTarget, setTeacherResultBackTarget] = useState('home');
@@ -357,8 +377,10 @@ export default function App() {
     }
   }, [currentUser]);
 
-  async function loadTeacherModules(teacherId) {
-    setLoadingModules(true);
+  async function loadTeacherModules(teacherId, options = {}) {
+    if (!options.silent) {
+      setLoadingModules(true);
+    }
 
     try {
       const data = await fetchTeacherModules(teacherId);
@@ -375,22 +397,84 @@ export default function App() {
         );
         setSessionForm((currentForm) => ({
           ...currentForm,
-          moduleId: data.some((module) => module.id === Number(currentForm.moduleId))
-            ? currentForm.moduleId
-            : data[0].id,
-          selectedQuestionIds: data.some((module) => module.id === Number(currentForm.moduleId))
+          moduleId: (() => {
+            const currentModule = data.find((module) => module.id === Number(currentForm.moduleId));
+            const defaultModule =
+              isUsableSessionModule(currentModule)
+                ? currentModule
+                : data.find((module) => isUsableSessionModule(module) && getActiveChapters(module).length) ||
+                  data.find(isUsableSessionModule);
+            return defaultModule?.id || '';
+          })(),
+          chapterId: (() => {
+            const currentModule = data.find((module) => module.id === Number(currentForm.moduleId));
+            const defaultModule =
+              isUsableSessionModule(currentModule)
+                ? currentModule
+                : data.find((module) => isUsableSessionModule(module) && getActiveChapters(module).length) ||
+                  data.find(isUsableSessionModule);
+            return getActiveChapters(defaultModule).some((chapter) => chapter.id === Number(currentForm.chapterId))
+              ? currentForm.chapterId
+              : getFirstChapterId(defaultModule);
+          })(),
+          selectedQuestionIds: data.some((module) => isUsableSessionModule(module) && module.id === Number(currentForm.moduleId))
             ? currentForm.selectedQuestionIds
             : [],
         }));
       } else {
         setSelectedModuleId('');
       }
+
+      return data;
     } catch (error) {
       setFeedback(error.message);
+      return [];
     } finally {
-      setLoadingModules(false);
+      if (!options.silent) {
+        setLoadingModules(false);
+      }
     }
   }
+
+  useEffect(() => {
+    if (!authChecked || currentUser?.role !== 'teacher' || page !== 'teacher-dashboard' || !currentUser.id) {
+      return undefined;
+    }
+
+    let active = true;
+
+    async function refreshTeacherModulesSilently() {
+      if (!active) {
+        return;
+      }
+
+      await loadTeacherModules(currentUser.id, { silent: true });
+    }
+
+    const channel = supabase
+      .channel(`teacher-module-sync-${currentUser.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'modules',
+          filter: `teacher_id=eq.${currentUser.id}`,
+        },
+        refreshTeacherModulesSilently,
+      )
+      .subscribe();
+
+    const refreshTimer = window.setInterval(refreshTeacherModulesSilently, 8000);
+
+    refreshTeacherModulesSilently();
+
+    return () => {
+      active = false;
+      window.clearInterval(refreshTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [authChecked, currentUser?.id, currentUser?.role, page]);
 
   useEffect(() => {
     if (page === 'student-waiting' && ['live', 'paused'].includes(studentSession?.status)) {
@@ -1143,6 +1227,7 @@ export default function App() {
   function resetQuestionForm() {
     setQuestionForm({
       question: '',
+      chapterId: '',
       optionA: '',
       optionB: '',
       optionC: '',
@@ -1276,6 +1361,8 @@ export default function App() {
             ? {
                 ...item,
                 ...updatedModule,
+                chapters: Array.isArray(item.chapters) ? item.chapters : updatedModule.chapters || [],
+                allChapters: Array.isArray(item.allChapters) ? item.allChapters : updatedModule.allChapters || [],
                 questions: item.questions || updatedModule.questions || [],
                 latestReviewRequest: item.latestReviewRequest || updatedModule.latestReviewRequest,
               }
@@ -1308,6 +1395,8 @@ export default function App() {
             ? {
                 ...item,
                 ...updatedModule,
+                chapters: Array.isArray(item.chapters) ? item.chapters : updatedModule.chapters || [],
+                allChapters: Array.isArray(item.allChapters) ? item.allChapters : updatedModule.allChapters || [],
                 questions: item.questions || updatedModule.questions || [],
                 latestReviewRequest: item.latestReviewRequest || updatedModule.latestReviewRequest,
               }
@@ -1331,18 +1420,21 @@ export default function App() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Move ${module.moduleCode} - ${module.title} to deleted modules? Its questions and history will be kept for admin review.`,
-    );
+    setModuleDeleteConfirm(module);
+  }
 
-    if (!confirmed) {
+  async function confirmDeleteModule() {
+    const moduleToDelete = moduleDeleteConfirm;
+
+    if (!moduleToDelete) {
       return;
     }
 
     try {
+      setModuleDeleteBusy(true);
       setModuleBusyMessage('Moving module to deleted modules...');
-      await deleteTeacherModule(moduleId);
-      const remainingModules = modules.filter((module) => module.id !== moduleId);
+      await deleteTeacherModule(moduleToDelete.id);
+      const remainingModules = modules.filter((module) => module.id !== moduleToDelete.id);
       setModules(remainingModules);
 
       if (remainingModules.length > 0) {
@@ -1350,10 +1442,12 @@ export default function App() {
         setSessionForm((currentForm) => ({ ...currentForm, moduleId: remainingModules[0].id }));
       }
 
+      setModuleDeleteConfirm(null);
       setFeedback('Module moved to deleted modules. Admin can still view its data.');
     } catch (error) {
       setFeedback(error.message);
     } finally {
+      setModuleDeleteBusy(false);
       setModuleBusyMessage('');
     }
   }
@@ -1392,6 +1486,15 @@ export default function App() {
     try {
       if (editingQuestionId) {
         const updatedQuestion = await updateModuleQuestion(editingQuestionId, questionForm);
+        const selectedChapter = selectedModule?.chapters?.find(
+          (chapter) => chapter.id === Number(questionForm.chapterId),
+        );
+        const enrichedQuestion = {
+          ...updatedQuestion,
+          chapterCode: selectedChapter?.chapterCode || null,
+          chapterTitle: selectedChapter?.title || null,
+          chapterIsDeleted: Boolean(selectedChapter?.isDeleted),
+        };
 
         setModules((currentModules) =>
           currentModules.map((module) => {
@@ -1402,13 +1505,14 @@ export default function App() {
             return {
               ...module,
               questions: (module.questions || []).map((question) =>
-                question.id === editingQuestionId ? updatedQuestion : question,
+                question.id === editingQuestionId ? enrichedQuestion : question,
               ),
             };
           }),
         );
         resetQuestionForm();
-        setFeedback(`Question ${updatedQuestion.questionCode || ''} updated.`);
+        setFeedback(`Question ${enrichedQuestion.questionCode || ''} updated.`);
+        await loadTeacherModules(currentUser.id);
         return;
       }
 
@@ -1417,6 +1521,15 @@ export default function App() {
         moduleId: selectedModuleId,
         questionForm,
       });
+      const selectedChapter = selectedModule?.chapters?.find(
+        (chapter) => chapter.id === Number(questionForm.chapterId),
+      );
+      const enrichedQuestion = {
+        ...nextQuestion,
+        chapterCode: selectedChapter?.chapterCode || null,
+        chapterTitle: selectedChapter?.title || null,
+        chapterIsDeleted: Boolean(selectedChapter?.isDeleted),
+      };
 
       setModules((currentModules) =>
         currentModules.map((module) => {
@@ -1426,12 +1539,13 @@ export default function App() {
 
           return {
             ...module,
-            questions: [nextQuestion, ...(module.questions || [])],
+            questions: [enrichedQuestion, ...(module.questions || [])],
           };
         }),
       );
       resetQuestionForm();
-      setFeedback(`Question ${nextQuestion.questionCode || ''} added to ${selectedModule.moduleCode}.`);
+      setFeedback(`Question ${enrichedQuestion.questionCode || ''} added to ${selectedModule.moduleCode}.`);
+      await loadTeacherModules(currentUser.id);
     } catch (error) {
       setFeedback(error.message);
     }
@@ -1457,7 +1571,24 @@ export default function App() {
       const importedQuestions = await createModuleQuestions({
         teacherId: currentUser.id,
         moduleId: selectedModuleId,
-        questionRows,
+        questionRows: questionRows.map((questionRow) => ({
+          ...questionRow,
+          chapterId: questionRow.chapterId || questionForm.chapterId,
+        })),
+      });
+      const chapterById = (selectedModule?.chapters || []).reduce((collection, chapter) => {
+        collection.set(chapter.id, chapter);
+        return collection;
+      }, new Map());
+      const enrichedQuestions = importedQuestions.map((question) => {
+        const chapter = chapterById.get(question.chapterId);
+
+        return {
+          ...question,
+          chapterCode: chapter?.chapterCode || null,
+          chapterTitle: chapter?.title || null,
+          chapterIsDeleted: Boolean(chapter?.isDeleted),
+        };
       });
 
       setModules((currentModules) =>
@@ -1468,11 +1599,12 @@ export default function App() {
 
           return {
             ...module,
-            questions: [...importedQuestions, ...(module.questions || [])],
+            questions: [...enrichedQuestions, ...(module.questions || [])],
           };
         }),
       );
-      setFeedback(`${importedQuestions.length} questions imported to ${selectedModule.moduleCode}.`);
+      setFeedback(`${enrichedQuestions.length} questions imported to ${selectedModule.moduleCode}.`);
+      await loadTeacherModules(currentUser.id);
       return true;
     } catch (error) {
       setFeedback(error.message);
@@ -1521,6 +1653,7 @@ export default function App() {
 
     setQuestionForm({
       question: question.question || '',
+      chapterId: question.chapterIsDeleted ? '' : question.chapterId || '',
       optionA: question.optionA || '',
       optionB: question.optionB || '',
       optionC: question.optionC || '',
@@ -1539,20 +1672,30 @@ export default function App() {
       return;
     }
 
-    const confirmed = window.confirm(`Delete ${question.questionCode || 'this question'}?`);
+    setQuestionDeleteConfirm({
+      moduleId: Number(selectedModuleId),
+      question,
+    });
+  }
 
-    if (!confirmed) {
+  async function confirmDeleteQuestion() {
+    const deleteTarget = questionDeleteConfirm;
+
+    if (!deleteTarget?.question) {
       return;
     }
 
+    const questionId = deleteTarget.question.id;
+
     try {
+      setQuestionDeleteBusy(true);
       await deleteModuleQuestion(questionId);
       if (editingQuestionId === questionId) {
         resetQuestionForm();
       }
       setModules((currentModules) =>
         currentModules.map((module) => {
-          if (module.id !== Number(selectedModuleId)) {
+          if (module.id !== Number(deleteTarget.moduleId)) {
             return module;
           }
 
@@ -1562,9 +1705,13 @@ export default function App() {
           };
         }),
       );
+      setQuestionDeleteConfirm(null);
       setFeedback('Question deleted.');
+      await loadTeacherModules(currentUser.id);
     } catch (error) {
       setFeedback(error.message);
+    } finally {
+      setQuestionDeleteBusy(false);
     }
   }
 
@@ -1583,8 +1730,8 @@ export default function App() {
       return;
     }
 
-    if (!module || !module.questions?.length) {
-      setFeedback('Please choose a module with at least one question. Create a module, then Manage Questions first.');
+    if (!module) {
+      setFeedback('Please choose a module first.');
       return;
     }
 
@@ -1593,12 +1740,39 @@ export default function App() {
       return;
     }
 
-    if (module.isLocked) {
+    if (module.isLocked || module.isDeleted) {
       setFeedback('This module is locked by admin and cannot be used to create a session.');
       return;
     }
 
-    const availableQuestionIds = module.questions.map((question) => question.id);
+    const activeChapters = getActiveChapters(module);
+
+    if (!activeChapters.length) {
+      setFeedback('This module has no topics yet. Please create a topic before creating a session.');
+      return;
+    }
+
+    const selectedChapter = activeChapters.find((chapter) => chapter.id === Number(sessionForm.chapterId));
+
+    if (!selectedChapter) {
+      setFeedback('Please choose a topic for this session.');
+      return;
+    }
+
+    const topicQuestions = (module.questions || []).filter(
+      (question) => !question.chapterIsDeleted && Number(question.chapterId) === Number(selectedChapter.id),
+    );
+
+    if (topicQuestions.length === 0) {
+      setFeedback('This topic has no questions yet. Please add questions to the selected topic first.');
+      return;
+    }
+
+    const moduleForSession = {
+      ...module,
+      questions: topicQuestions,
+    };
+    const availableQuestionIds = topicQuestions.map((question) => question.id);
     const requestedQuestionCount = Number(sessionForm.questionCount);
     let selectedSessionQuestionIds = sessionForm.selectedQuestionIds;
     const effectiveQuestionCount = sessionForm.questionSelectionMode === 'manual'
@@ -1620,8 +1794,8 @@ export default function App() {
         return;
       }
 
-      if (validSelectedQuestionIds.length > module.questions.length) {
-        setFeedback('Selected questions cannot be more than the questions inside this module.');
+      if (validSelectedQuestionIds.length > topicQuestions.length) {
+        setFeedback('Selected questions cannot be more than the questions inside this topic.');
         return;
       }
 
@@ -1629,9 +1803,9 @@ export default function App() {
     } else if (
       Number.isNaN(requestedQuestionCount) ||
       requestedQuestionCount < 1 ||
-      requestedQuestionCount > module.questions.length
+      requestedQuestionCount > topicQuestions.length
     ) {
-      setFeedback(`Please choose between 1 and ${module.questions.length} questions.`);
+      setFeedback(`Please choose between 1 and ${topicQuestions.length} questions for this topic.`);
       return;
     }
 
@@ -1643,7 +1817,7 @@ export default function App() {
     try {
       const session = await createDatabaseSession({
         gameType: sessionForm.gameType,
-        module,
+        module: moduleForSession,
         questionCount: sessionForm.questionCount,
         questionSelectionMode: sessionForm.questionSelectionMode,
         roundSeconds: sessionForm.roundSeconds,
@@ -2477,44 +2651,72 @@ export default function App() {
           onCancel={cancelBackLogoutPrompt}
           onConfirm={confirmBackLogoutPrompt}
         />
+        <ModuleDeleteConfirmDialog
+          isBusy={moduleDeleteBusy}
+          module={moduleDeleteConfirm}
+          onCancel={() => setModuleDeleteConfirm(null)}
+          onConfirm={confirmDeleteModule}
+        />
+        <QuestionDeleteConfirmDialog
+          isBusy={questionDeleteBusy}
+          target={questionDeleteConfirm}
+          onCancel={() => setQuestionDeleteConfirm(null)}
+          onConfirm={confirmDeleteQuestion}
+        />
       </>
     );
   }
 
   if (page === 'modules') {
     return (
-      <ModuleManagementPage
-        feedback={feedback}
-        moduleForm={moduleForm}
-        modules={modules}
-        onAddModule={addModule}
-        onBack={() => go('teacher-dashboard')}
-        onDeleteModule={deleteModule}
-        onLogout={logout}
-        onModuleFormChange={setModuleForm}
-      />
+      <>
+        <ModuleManagementPage
+          feedback={feedback}
+          moduleForm={moduleForm}
+          modules={modules}
+          onAddModule={addModule}
+          onBack={() => go('teacher-dashboard')}
+          onDeleteModule={deleteModule}
+          onLogout={logout}
+          onModuleFormChange={setModuleForm}
+        />
+        <ModuleDeleteConfirmDialog
+          isBusy={moduleDeleteBusy}
+          module={moduleDeleteConfirm}
+          onCancel={() => setModuleDeleteConfirm(null)}
+          onConfirm={confirmDeleteModule}
+        />
+      </>
     );
   }
 
   if (page === 'questions') {
     return (
-      <QuestionBankPage
-        feedback={feedback}
-        modules={modules}
-        onAddQuestion={addQuestion}
-        onBack={() => go('teacher-dashboard')}
-        onDeleteQuestion={deleteQuestion}
-        onEditQuestion={editQuestion}
-        onCancelQuestionEdit={resetQuestionForm}
-        onImportQuestions={importQuestions}
-        onLogout={logout}
-        onQuestionFormChange={setQuestionForm}
-        onSelectedModuleChange={selectModule}
-        questionForm={questionForm}
-        editingQuestionId={editingQuestionId}
-        selectedModule={selectedModule}
-        selectedModuleId={selectedModuleId}
-      />
+      <>
+        <QuestionBankPage
+          feedback={feedback}
+          modules={modules}
+          onAddQuestion={addQuestion}
+          onBack={() => go('teacher-dashboard')}
+          onDeleteQuestion={deleteQuestion}
+          onEditQuestion={editQuestion}
+          onCancelQuestionEdit={resetQuestionForm}
+          onImportQuestions={importQuestions}
+          onLogout={logout}
+          onQuestionFormChange={setQuestionForm}
+          onSelectedModuleChange={selectModule}
+          questionForm={questionForm}
+          editingQuestionId={editingQuestionId}
+          selectedModule={selectedModule}
+          selectedModuleId={selectedModuleId}
+        />
+        <QuestionDeleteConfirmDialog
+          isBusy={questionDeleteBusy}
+          target={questionDeleteConfirm}
+          onCancel={() => setQuestionDeleteConfirm(null)}
+          onConfirm={confirmDeleteQuestion}
+        />
+      </>
     );
   }
 
@@ -2709,6 +2911,109 @@ function DashboardBackLogoutPrompt({ isOpen, onCancel, onConfirm }) {
           </button>
           <button className="primary-button" type="button" onClick={onCancel}>
             Stay Here
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ModuleDeleteConfirmDialog({ isBusy, module, onCancel, onConfirm }) {
+  if (!module) {
+    return null;
+  }
+
+  const moduleLabel = `${module.moduleCode || 'Module'} - ${module.title || 'Untitled module'}`;
+
+  return (
+    <div
+      className="modal-backdrop import-delete-backdrop module-delete-confirm-backdrop"
+      role="presentation"
+      onClick={isBusy ? undefined : onCancel}
+    >
+      <section
+        aria-labelledby="module-delete-confirm-title"
+        aria-modal="true"
+        className="review-message-modal import-delete-modal module-delete-confirm-modal"
+        role="dialog"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <p className="eyebrow">Delete Module</p>
+        <h2 id="module-delete-confirm-title">Move this module to deleted modules?</h2>
+        <p>
+          {moduleLabel} will be hidden from the teacher module list. Its questions, topics, students, and result
+          history will still be kept for admin review.
+        </p>
+        {isBusy && (
+          <div className="import-delete-loading" aria-live="polite">
+            <span className="loading-spinner" />
+            <strong>Moving module...</strong>
+          </div>
+        )}
+        <div className="dashboard-back-actions">
+          <button
+            className="secondary-button danger-button"
+            disabled={isBusy}
+            type="button"
+            onClick={onConfirm}
+          >
+            Yes, Delete
+          </button>
+          <button className="primary-button" disabled={isBusy} type="button" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function QuestionDeleteConfirmDialog({ isBusy, onCancel, onConfirm, target }) {
+  if (!target?.question) {
+    return null;
+  }
+
+  const question = target.question;
+
+  return (
+    <div
+      className="modal-backdrop import-delete-backdrop question-delete-confirm-backdrop"
+      role="presentation"
+      onClick={isBusy ? undefined : onCancel}
+    >
+      <section
+        aria-labelledby="question-delete-confirm-title"
+        aria-modal="true"
+        className="review-message-modal import-delete-modal question-delete-confirm-modal"
+        role="dialog"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <p className="eyebrow">Delete Question</p>
+        <h2 id="question-delete-confirm-title">Delete {question.questionCode || 'this question'}?</h2>
+        <p>
+          This question will be removed from the question bank. Existing session history and result records will stay
+          available for review.
+        </p>
+        <div className="question-delete-preview">
+          <strong>{question.question || 'No question text'}</strong>
+        </div>
+        {isBusy && (
+          <div className="import-delete-loading" aria-live="polite">
+            <span className="loading-spinner" />
+            <strong>Deleting question...</strong>
+          </div>
+        )}
+        <div className="dashboard-back-actions">
+          <button
+            className="secondary-button danger-button"
+            disabled={isBusy}
+            type="button"
+            onClick={onConfirm}
+          >
+            Yes, Delete
+          </button>
+          <button className="primary-button" disabled={isBusy} type="button" onClick={onCancel}>
+            Cancel
           </button>
         </div>
       </section>

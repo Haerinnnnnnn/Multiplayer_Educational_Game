@@ -313,26 +313,52 @@ export function TeacherSessionReviewPage({ module, onBack, session }) {
   const sessionClassicStats = getClassicSessionStats(session);
   const sessionQuestions = getSessionQuestions(module, session);
   const isClassicMcq = session.gameType !== 'qr_pair_match';
+  const gameTypeLabel = isClassicMcq ? 'Classic MCQ' : 'QR Pair Match';
+  const participantCount = session.participants?.length || 0;
+  const questionCount = session.questionIds?.length || sessionQuestions.length || 0;
+  const answerCount = isClassicMcq ? sessionClassicStats.totalQuestions : sessionQrStats.totalQuestions;
+  const correctCount = isClassicMcq ? sessionClassicStats.correctCount : sessionQrStats.correctCount;
+  const topicLabel = session.topicTitle || 'Unassigned';
+  const topicCodeLabel = session.topicCode ? `Topic Code ${session.topicCode}` : 'No topic code';
 
   return (
     <AppFrame title="Session Review" onHome={onBack}>
       <section className="teacher-history-detail review-detail-shell">
-        <section className="panel review-section-card review-overview-card">
-          <div className="history-card-header">
-          <div>
-            <p className="eyebrow">{session.status}</p>
-            <h2>{session.code}</h2>
-            <p>{module?.title || '-'}</p>
-            <p className="muted">{session.createdAt}</p>
+        <section className="panel review-section-card review-overview-card session-review-overview">
+          <div className="session-review-hero">
+            <div>
+              <p className="eyebrow">{(session.status || 'ended').toUpperCase()}</p>
+              <h2>{session.code}</h2>
+              <p className="session-review-module">{session.moduleTitle || module?.title || '-'}</p>
+            </div>
+            <div className="session-review-badges" aria-label="Session labels">
+              <span className="session-review-badge">{gameTypeLabel}</span>
+              <span className="session-review-badge subtle">{session.status || 'ended'}</span>
+            </div>
           </div>
-        </div>
 
-        <div className="stats-grid">
-          <Stat label="Students Joined" value={session.participants.length} />
-          <Stat label="Questions" value={session.questionIds?.length || 0} />
-          <Stat label="Game Type" value={session.gameType === 'qr_pair_match' ? 'QR Pair' : 'Classic'} />
-          <Stat label="Status" value={session.status} />
-        </div>
+          <div className="session-review-meta-grid">
+            <div>
+              <span>Module</span>
+              <strong>{session.moduleTitle || module?.title || '-'}</strong>
+            </div>
+            <div>
+              <span>Topic</span>
+              <strong>{topicLabel}</strong>
+              <small>{topicCodeLabel}</small>
+            </div>
+            <div>
+              <span>Created</span>
+              <strong>{session.createdAt || '-'}</strong>
+            </div>
+          </div>
+
+          <div className="stats-grid session-review-stats-grid">
+            <Stat label="Students Joined" value={participantCount} />
+            <Stat label="Questions" value={questionCount} />
+            <Stat label={isClassicMcq ? 'Answers' : 'Attempts'} value={answerCount} />
+            <Stat label="Correct" value={correctCount} />
+          </div>
         </section>
 
         {isClassicMcq && (

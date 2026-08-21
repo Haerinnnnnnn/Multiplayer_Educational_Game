@@ -8,6 +8,11 @@ import { ProfileDetailsForm } from '../components/ProfileDetailsForm.jsx';
 import classicMcqImage from '../assets/ClassicMCQ.png';
 import qrPairMatchImage from '../assets/QRPairMatch.png';
 import {
+  createModuleChapter,
+  deleteModuleChapter,
+  updateModuleChapter,
+} from '../services/chapterService.js';
+import {
   addStudentToModule,
   fetchModuleInviteCandidates,
   fetchModuleStudentAccess,
@@ -16,10 +21,12 @@ import {
   reviewModuleJoinRequest,
 } from '../services/moduleAccessService.js';
 import {
+  downloadQuestionTemplate,
   normalizeEditedQuestionImportRow,
   readExcelQuestionFile,
   validateQuestionImportRow,
 } from '../services/questionImportService.js';
+import { fetchStudentExperienceLeaderboard } from '../services/experienceService.js';
 import { fetchTeacherJoinRequestNotifications } from '../services/teacherNotificationService.js';
 
 function getInitial(name) {
@@ -27,7 +34,7 @@ function getInitial(name) {
 }
 
 function getIndicatorStyle(activeTab) {
-  const tabOrder = ['home', 'modules', 'sessions', 'history'];
+  const tabOrder = ['home', 'modules', 'sessions', 'history', 'leaderboard'];
   const index = tabOrder.indexOf(activeTab);
 
   if (index < 0) {
@@ -37,6 +44,48 @@ function getIndicatorStyle(activeTab) {
   return {
     transform: `translateX(${index * 112}px)`,
   };
+}
+
+function TeacherLeaderboardPage({ error, leaderboard, loading }) {
+  return (
+    <section className="student-leaderboard-page teacher-dashboard-panel-in">
+      <div className="student-leaderboard-hero">
+        <div>
+          <p className="eyebrow">EXP Ranking</p>
+          <h1>Student Leaderboard</h1>
+          <p>Monitor the highest student EXP across all completed game sessions.</p>
+        </div>
+        <span>{leaderboard.length} players</span>
+      </div>
+
+      <section className="student-exp-leaderboard">
+        <div className="student-exp-leaderboard-header">
+          <div>
+            <p className="eyebrow">Leaderboard</p>
+            <h2>Top EXP Players</h2>
+          </div>
+          <span>{leaderboard.length}</span>
+        </div>
+
+        {loading && <p className="muted">Loading leaderboard...</p>}
+        {!loading && error && <p className="leaderboard-error">{error}</p>}
+        {!loading && !error && !leaderboard.length && (
+          <p className="muted">No EXP ranking yet.</p>
+        )}
+        {!loading && !error && leaderboard.length > 0 && (
+          <ol className="student-exp-leaderboard-list">
+            {leaderboard.map((player) => (
+              <li key={player.id || player.rank}>
+                <strong>#{player.rank}</strong>
+                <span>{player.name}</span>
+                <b>{player.totalExp} EXP</b>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </section>
+  );
 }
 
 function TeacherHome({ currentUser, modules, onCreateSession, onModules, onOpenActiveSession, sessions, stats }) {
@@ -145,63 +194,13 @@ function ModulesTab({
   onAddModule,
   onDeleteModule,
   onEditModule,
-  onManageQuestions,
+  onManageModule,
   onManageStudents,
   onModuleFormChange,
   onRefreshModules,
   onRequestModuleReview,
   onToggleModuleVisibility,
 }) {
-  const [reviewModuleId, setReviewModuleId] = useState(null);
-  const [reviewMessages, setReviewMessages] = useState({});
-  const [reviewBusyId, setReviewBusyId] = useState(null);
-  const [editingModuleId, setEditingModuleId] = useState(null);
-  const [editingModuleForm, setEditingModuleForm] = useState({ title: '', description: '' });
-
-  function getReviewMessage(module) {
-    return (
-      reviewMessages[module.id] ??
-      `I have updated ${module.moduleCode || module.title}. Please check again.`
-    );
-  }
-
-  async function submitReviewRequest(event, module) {
-    event.preventDefault();
-    setReviewBusyId(module.id);
-
-    const success = await onRequestModuleReview(module.id, getReviewMessage(module));
-    setReviewBusyId(null);
-
-    if (success) {
-      setReviewModuleId(null);
-    }
-  }
-
-  function startEditModule(module) {
-    setReviewModuleId(null);
-    setEditingModuleId(module.id);
-    setEditingModuleForm({
-      title: module.title || '',
-      description: module.description === 'No description yet.' ? '' : module.description || '',
-    });
-  }
-
-  async function submitModuleEdit(event) {
-    event.preventDefault();
-
-    const success = await onEditModule(editingModuleId, editingModuleForm);
-
-    if (success) {
-      setEditingModuleId(null);
-      setEditingModuleForm({ title: '', description: '' });
-    }
-  }
-
-  function cancelEditModule() {
-    setEditingModuleId(null);
-    setEditingModuleForm({ title: '', description: '' });
-  }
-
   return (
     <section className="teacher-dashboard-panel-in module-section-wrap">
       {moduleBusyMessage && (
@@ -262,160 +261,524 @@ function ModulesTab({
                 {module.visibility === 'public' ? 'Public' : 'Private'}
               </span>
             </div>
-            <label className="module-access-switch">
-              <span>
-                <strong>Module Access</strong>
-                <small>{module.visibility === 'public' ? 'Students can join directly.' : 'Students need teacher approval.'}</small>
-              </span>
-              <input
-                checked={module.visibility === 'public'}
-                type="checkbox"
-                onChange={(event) =>
-                  onToggleModuleVisibility(module.id, event.target.checked ? 'public' : 'private')
-                }
-              />
-              <i aria-hidden="true" />
-            </label>
             {module.isLocked && (
               <p className="module-lock-message">
                 This module is locked by admin. This module cannot be used in any session unless it gets unlocked by admin.
               </p>
             )}
-            {module.latestReviewRequest && (
-              <div
-                className={
-                  module.latestReviewRequest.status === 'approved'
-                    ? 'review-status-inline'
-                    : 'review-status-panel'
-                }
-              >
-                <span className={`review-badge ${module.latestReviewRequest.status}`}>
-                  {getReviewStatusLabel(module.latestReviewRequest.status)}
-                </span>
-                {module.latestReviewRequest.status !== 'approved' && (
-                  <>
-                    <p>{module.latestReviewRequest.message}</p>
-                    {module.latestReviewRequest.adminFeedback && (
-                      <p className="muted">Admin feedback: {module.latestReviewRequest.adminFeedback}</p>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-            {editingModuleId === module.id ? (
-              <form className="review-request-form module-edit-form" onSubmit={submitModuleEdit}>
-                <label>
-                  Module Name
-                  <input
-                    value={editingModuleForm.title}
-                    onChange={(event) =>
-                      setEditingModuleForm((currentForm) => ({
-                        ...currentForm,
-                        title: event.target.value,
-                      }))
-                    }
-                    placeholder="Module name"
-                  />
-                </label>
-                <label>
-                  Description
-                  <textarea
-                    value={editingModuleForm.description}
-                    onChange={(event) =>
-                      setEditingModuleForm((currentForm) => ({
-                        ...currentForm,
-                        description: event.target.value,
-                      }))
-                    }
-                    placeholder="Short module description"
-                  />
-                </label>
-                <div className="button-row">
-                  <button className="primary-button" type="submit">
-                    Save Changes
-                  </button>
-                  <button className="secondary-button" type="button" onClick={cancelEditModule}>
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <p>{module.description}</p>
-            )}
-            <p className="muted">{module.questions?.length || 0} questions</p>
-            {module.isLocked && reviewModuleId === module.id && (
-              <form className="review-request-form" onSubmit={(event) => submitReviewRequest(event, module)}>
-                <label>
-                  Message To Admin
-                  <textarea
-                    value={getReviewMessage(module)}
-                    onChange={(event) =>
-                      setReviewMessages((currentMessages) => ({
-                        ...currentMessages,
-                        [module.id]: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <div className="button-row">
-                  <button className="primary-button" disabled={reviewBusyId === module.id} type="submit">
-                    {reviewBusyId === module.id ? 'Sending...' : 'Send Review Request'}
-                  </button>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => setReviewModuleId(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
+            <p>{module.description}</p>
+            <div className="module-card-meta-grid">
+              <span>
+                <strong>{module.chapters?.length || 0}</strong>
+                topics
+              </span>
+              <span>
+                <strong>{module.questions?.length || 0}</strong>
+                questions
+              </span>
+            </div>
             <div className="button-row">
               <button
                 className="primary-button"
                 type="button"
-                onClick={() => onManageQuestions(module.id)}
+                onClick={() => onManageModule(module.id)}
               >
-                Manage Questions
-              </button>
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => onManageStudents(module.id)}
-              >
-                Manage Students
-              </button>
-              {editingModuleId !== module.id && (
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => startEditModule(module)}
-                >
-                  Edit Details
-                </button>
-              )}
-              {module.isLocked && reviewModuleId !== module.id && (
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => setReviewModuleId(module.id)}
-                >
-                  Request Admin Review
-                </button>
-              )}
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => onDeleteModule(module.id)}
-              >
-                Delete
+                Manage Module
               </button>
             </div>
           </section>
         ))}
         {!loadingModules && modules.length === 0 && <EmptyState text="No modules created yet." />}
       </div>
+    </section>
+  );
+}
+
+function ManageModuleTab({
+  currentUser,
+  feedback,
+  module,
+  onBack,
+  onDeleteModule,
+  onEditModule,
+  onManageTopicQuestions,
+  onManageStudents,
+  onRefreshModules,
+  onRequestModuleReview,
+  onToggleModuleVisibility,
+}) {
+  const [chapterForm, setChapterForm] = useState({ title: '', description: '', sortOrder: 0 });
+  const [editingChapterId, setEditingChapterId] = useState(null);
+  const [editingChapterForm, setEditingChapterForm] = useState({ title: '', description: '', sortOrder: 0 });
+  const [editingModule, setEditingModule] = useState(false);
+  const [editingModuleForm, setEditingModuleForm] = useState({ title: '', description: '' });
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [busyMessage, setBusyMessage] = useState('');
+  const [localFeedback, setLocalFeedback] = useState('');
+  const [deleteChapterConfirm, setDeleteChapterConfirm] = useState(null);
+
+  if (!module) {
+    return (
+      <section className="teacher-dashboard-panel-in">
+        <EmptyState text="Select a module first." />
+      </section>
+    );
+  }
+
+  const unassignedQuestionCount = (module.questions || []).filter((question) => !question.chapterId).length;
+
+  function resetChapterForm() {
+    setChapterForm({ title: '', description: '', sortOrder: 0 });
+  }
+
+  async function submitChapter(event) {
+    event.preventDefault();
+
+    if (!chapterForm.title.trim()) {
+      setLocalFeedback('Please enter a topic title.');
+      return;
+    }
+
+    try {
+      setBusyMessage('Creating topic...');
+      await createModuleChapter({
+        moduleId: module.id,
+        teacherId: currentUser?.id,
+        chapterForm,
+      });
+      resetChapterForm();
+      setLocalFeedback('Topic added to this module.');
+      await onRefreshModules();
+    } catch (error) {
+      setLocalFeedback(error.message);
+    } finally {
+      setBusyMessage('');
+    }
+  }
+
+  function startEditChapter(chapter) {
+    setEditingChapterId(chapter.id);
+    setEditingChapterForm({
+      title: chapter.title || '',
+      description: chapter.description || '',
+      sortOrder: chapter.sortOrder || 0,
+    });
+  }
+
+  async function submitEditChapter(event) {
+    event.preventDefault();
+
+    if (!editingChapterForm.title.trim()) {
+      setLocalFeedback('Please enter a topic title.');
+      return;
+    }
+
+    try {
+      setBusyMessage('Updating topic...');
+      await updateModuleChapter(editingChapterId, editingChapterForm);
+      setEditingChapterId(null);
+      setEditingChapterForm({ title: '', description: '', sortOrder: 0 });
+      setLocalFeedback('Topic updated.');
+      await onRefreshModules();
+    } catch (error) {
+      setLocalFeedback(error.message);
+    } finally {
+      setBusyMessage('');
+    }
+  }
+
+  async function confirmRemoveChapter(chapter) {
+    try {
+      setDeleteChapterConfirm(null);
+      setBusyMessage(`Removing ${chapter.chapterCode || 'topic'}...`);
+      await deleteModuleChapter(chapter.id);
+      setLocalFeedback('Topic removed from active use. Existing questions and results are kept.');
+      await onRefreshModules();
+    } catch (error) {
+      setLocalFeedback(error.message);
+    } finally {
+      setBusyMessage('');
+    }
+  }
+
+  function startEditModule() {
+    setEditingModule(true);
+    setEditingModuleForm({
+      title: module.title || '',
+      description: module.description === 'No description yet.' ? '' : module.description || '',
+    });
+  }
+
+  async function submitModuleEdit(event) {
+    event.preventDefault();
+
+    const success = await onEditModule(module.id, editingModuleForm);
+
+    if (success) {
+      setEditingModule(false);
+    }
+  }
+
+  async function submitReviewRequest(event) {
+    event.preventDefault();
+
+    const success = await onRequestModuleReview(
+      module.id,
+      reviewMessage || `I have updated ${module.moduleCode || module.title}. Please check again.`,
+    );
+
+    if (success) {
+      setReviewOpen(false);
+      setReviewMessage('');
+    }
+  }
+
+  return (
+    <section className="teacher-dashboard-panel-in module-manage-view">
+      {busyMessage && (
+        <div className="module-loading-overlay">
+          <div className="logout-spinner" aria-hidden="true" />
+          <strong>{busyMessage}</strong>
+        </div>
+      )}
+
+      <section className="panel manage-module-hero">
+        <div>
+          <p className="eyebrow">{module.moduleCode || `MOD${String(module.id).padStart(3, '0')}`}</p>
+          <h2>{module.title}</h2>
+          <p>{module.description}</p>
+          <div className="module-status-row">
+            <span className={module.isLocked ? 'lock-badge locked' : 'lock-badge unlocked'}>
+              {module.isLocked ? 'Locked by Admin' : 'Unlocked'}
+            </span>
+            <span className={`visibility-badge ${module.visibility === 'public' ? 'public' : 'private'}`}>
+              {module.visibility === 'public' ? 'Public' : 'Private'}
+            </span>
+          </div>
+        </div>
+        <div className="manage-module-hero-actions">
+          <button className="secondary-button" type="button" onClick={onBack}>
+            Back To Modules
+          </button>
+          <button className="secondary-button" type="button" onClick={() => onManageStudents(module.id)}>
+            Manage Students
+          </button>
+        </div>
+      </section>
+
+      <Feedback text={localFeedback || feedback} />
+
+      <section className="module-manage-grid">
+        <section className="panel manage-module-card">
+          <h3>Module Access</h3>
+          <label className="module-access-switch">
+            <span>
+              <strong>{module.visibility === 'public' ? 'Public Module' : 'Private Module'}</strong>
+              <small>
+                {module.visibility === 'public'
+                  ? 'Students can join directly.'
+                  : 'Students need teacher approval before joining.'}
+              </small>
+            </span>
+            <input
+              checked={module.visibility === 'public'}
+              type="checkbox"
+              onChange={(event) =>
+                onToggleModuleVisibility(module.id, event.target.checked ? 'public' : 'private')
+              }
+            />
+            <i aria-hidden="true" />
+          </label>
+          {module.isLocked && (
+            <p className="module-lock-message">
+              This module is locked by admin. You can modify content, but it cannot be used in sessions until admin unlocks it.
+            </p>
+          )}
+        </section>
+
+        <section className="panel manage-module-card">
+          <h3>Module Actions</h3>
+          <div className="module-action-stack">
+            <button className="secondary-button" type="button" onClick={startEditModule}>
+              Edit Details
+            </button>
+            {module.isLocked && (
+              <button className="secondary-button" type="button" onClick={() => setReviewOpen(true)}>
+                Request Admin Review
+              </button>
+            )}
+            <button className="secondary-button danger-button" type="button" onClick={() => onDeleteModule(module.id)}>
+              Delete Module
+            </button>
+          </div>
+        </section>
+      </section>
+
+      {module.latestReviewRequest && (
+        <section className="panel review-status-panel manage-review-panel">
+          <span className={`review-badge ${module.latestReviewRequest.status}`}>
+            {getReviewStatusLabel(module.latestReviewRequest.status)}
+          </span>
+          {module.latestReviewRequest.status !== 'approved' && (
+            <>
+              <p>{module.latestReviewRequest.message}</p>
+              {module.latestReviewRequest.adminFeedback && (
+                <p className="muted">Admin feedback: {module.latestReviewRequest.adminFeedback}</p>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      {reviewOpen && (
+        <form className="panel review-request-form" onSubmit={submitReviewRequest}>
+          <h3>Message To Admin</h3>
+          <label>
+            Review Message
+            <textarea
+              value={reviewMessage}
+              onChange={(event) => setReviewMessage(event.target.value)}
+              placeholder={`I have updated ${module.moduleCode || module.title}. Please check again.`}
+            />
+          </label>
+          <div className="button-row">
+            <button className="primary-button" type="submit">
+              Send Review Request
+            </button>
+            <button className="secondary-button" type="button" onClick={() => setReviewOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {editingModule && (
+        <form className="panel form-grid module-edit-form" onSubmit={submitModuleEdit}>
+          <h3>Edit Module Details</h3>
+          <label>
+            Module Name
+            <input
+              value={editingModuleForm.title}
+              onChange={(event) =>
+                setEditingModuleForm((currentForm) => ({ ...currentForm, title: event.target.value }))
+              }
+              placeholder="Module name"
+            />
+          </label>
+          <label>
+            Description
+            <textarea
+              value={editingModuleForm.description}
+              onChange={(event) =>
+                setEditingModuleForm((currentForm) => ({ ...currentForm, description: event.target.value }))
+              }
+              placeholder="Short module description"
+            />
+          </label>
+          <div className="button-row">
+            <button className="primary-button" type="submit">
+              Save Changes
+            </button>
+            <button className="secondary-button" type="button" onClick={() => setEditingModule(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      <section className="panel module-topic-panel">
+        <div className="module-section-heading">
+          <div>
+            <p className="eyebrow">Topics / Chapters</p>
+            <h2>Organize Questions Inside This Module</h2>
+            <p className="muted">
+              Create topics such as Testing Basics, SQA vs SQC, or Code Quality. Questions can be linked to a topic later.
+            </p>
+          </div>
+          <span className="topic-count-pill">{module.chapters?.length || 0} topics</span>
+        </div>
+
+        <form className="chapter-form-grid" onSubmit={submitChapter}>
+          <label>
+            Topic Title
+            <input
+              value={chapterForm.title}
+              onChange={(event) => setChapterForm((currentForm) => ({ ...currentForm, title: event.target.value }))}
+              placeholder="Example: Software Testing Basics"
+            />
+          </label>
+          <label>
+            Sort Order
+            <input
+              min="0"
+              type="number"
+              value={chapterForm.sortOrder}
+              onChange={(event) => setChapterForm((currentForm) => ({ ...currentForm, sortOrder: event.target.value }))}
+            />
+          </label>
+          <label className="chapter-description-field">
+            Description
+            <textarea
+              value={chapterForm.description}
+              onChange={(event) =>
+                setChapterForm((currentForm) => ({ ...currentForm, description: event.target.value }))
+              }
+              placeholder="Short topic description"
+            />
+          </label>
+          <button className="primary-button" type="submit">
+            Add Topic
+          </button>
+        </form>
+
+        <div className="chapter-list">
+          {(module.chapters || []).map((chapter) => (
+            <article className="chapter-card" key={chapter.id}>
+              {editingChapterId === chapter.id ? (
+                <form className="chapter-edit-form" onSubmit={submitEditChapter}>
+                  <label>
+                    Topic Title
+                    <input
+                      value={editingChapterForm.title}
+                      onChange={(event) =>
+                        setEditingChapterForm((currentForm) => ({ ...currentForm, title: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    Sort Order
+                    <input
+                      min="0"
+                      type="number"
+                      value={editingChapterForm.sortOrder}
+                      onChange={(event) =>
+                        setEditingChapterForm((currentForm) => ({ ...currentForm, sortOrder: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className="chapter-description-field">
+                    Description
+                    <textarea
+                      value={editingChapterForm.description}
+                      onChange={(event) =>
+                        setEditingChapterForm((currentForm) => ({
+                          ...currentForm,
+                          description: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="button-row">
+                    <button className="primary-button" type="submit">
+                      Save Topic
+                    </button>
+                    <button className="secondary-button" type="button" onClick={() => setEditingChapterId(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <div>
+                    <p className="eyebrow">{chapter.chapterCode || `CH${String(chapter.id).padStart(3, '0')}`}</p>
+                    <h3>{chapter.title}</h3>
+                    <p>{chapter.description || 'No topic description yet.'}</p>
+                  </div>
+                  <div className="chapter-card-side">
+                    <span>{chapter.questionCount || 0} questions</span>
+                    <div className="table-action-row">
+                      <button className="link-button" type="button" onClick={() => startEditChapter(chapter)}>
+                        Edit
+                      </button>
+                      <button
+                        className="link-button"
+                        type="button"
+                        onClick={() => onManageTopicQuestions(module.id, chapter.id)}
+                      >
+                        Manage Questions
+                      </button>
+                      <button
+                        className="link-button danger-link"
+                        type="button"
+                        onClick={() => setDeleteChapterConfirm(chapter)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </article>
+          ))}
+          {unassignedQuestionCount > 0 && (
+            <article className="chapter-card unassigned-topic-card">
+              <div>
+                <p className="eyebrow">Unassigned</p>
+                <h3>Questions Without Topic</h3>
+                <p>Old or imported questions that are not linked to a topic yet.</p>
+              </div>
+              <div className="chapter-card-side">
+                <span>{unassignedQuestionCount} questions</span>
+                <button
+                  className="link-button"
+                  type="button"
+                  onClick={() => onManageTopicQuestions(module.id, 'unassigned')}
+                >
+                  Manage Questions
+                </button>
+              </div>
+            </article>
+          )}
+          {(module.chapters || []).length === 0 && unassignedQuestionCount === 0 && (
+            <EmptyState text="No topics yet. Add your first topic above." />
+          )}
+        </div>
+      </section>
+
+      {deleteChapterConfirm &&
+        createPortal(
+          <div
+            className="modal-backdrop import-delete-backdrop"
+            role="presentation"
+            onClick={() => setDeleteChapterConfirm(null)}
+          >
+            <section
+              aria-modal="true"
+              className="review-message-modal import-delete-modal topic-delete-modal"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <p className="eyebrow">Remove Topic</p>
+              <h2>Delete {deleteChapterConfirm.chapterCode || 'this topic'}?</h2>
+              <p>
+                This is a soft delete. The topic will not be usable for new sessions, but existing
+                questions, EXP records, and result history will be kept.
+              </p>
+              <div className="topic-delete-preview">
+                <strong>{deleteChapterConfirm.title}</strong>
+                <span>{deleteChapterConfirm.questionCount || 0} questions linked</span>
+              </div>
+              <div className="button-row">
+                <button
+                  className="secondary-button danger-button"
+                  type="button"
+                  onClick={() => confirmRemoveChapter(deleteChapterConfirm)}
+                >
+                  Yes, Delete Topic
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setDeleteChapterConfirm(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }
@@ -935,13 +1298,16 @@ function QuestionsTab({
   onDeleteQuestion,
   onEditQuestion,
   onImportQuestions,
+  onBackToModule,
   onQuestionFormChange,
   onRefreshModules,
   onRequestModuleReview,
   onSelectedModuleChange,
+  onTopicFilterChange,
   questionForm,
   selectedModule,
   selectedModuleId,
+  topicFilterId = '',
 }) {
   const [importRows, setImportRows] = useState([]);
   const [selectedImportRowIds, setSelectedImportRowIds] = useState([]);
@@ -949,6 +1315,17 @@ function QuestionsTab({
   const [deletingSelectedImportRows, setDeletingSelectedImportRows] = useState(false);
   const [importError, setImportError] = useState('');
   const [importing, setImporting] = useState(false);
+  const [importDragging, setImportDragging] = useState(false);
+  const scopedTopicId = topicFilterId && topicFilterId !== 'unassigned' ? String(topicFilterId) : '';
+
+  useEffect(() => {
+    if (scopedTopicId && String(questionForm.chapterId || '') !== scopedTopicId) {
+      onQuestionFormChange({
+        ...questionForm,
+        chapterId: scopedTopicId,
+      });
+    }
+  }, [onQuestionFormChange, questionForm, scopedTopicId]);
 
   if (!modules.length) {
     return <EmptyState text="Create a module before adding questions." />;
@@ -959,9 +1336,23 @@ function QuestionsTab({
   const selectedImportRowCount = selectedImportRowIds.length;
   const allImportRowsSelected =
     importRows.length > 0 && selectedImportRowCount === importRows.length;
+  const activeTopicFilter = topicFilterId === 'unassigned'
+    ? {
+        id: 'unassigned',
+        chapterCode: 'UNASSIGNED',
+        title: 'Questions Without Topic',
+        description: 'Old or imported questions that are not linked to a topic yet.',
+      }
+    : (selectedModule?.chapters || []).find((chapter) => String(chapter.id) === String(topicFilterId));
+  const visibleQuestions = topicFilterId
+    ? (selectedModule?.questions || []).filter((item) =>
+        topicFilterId === 'unassigned'
+          ? !item.chapterId
+          : Number(item.chapterId) === Number(topicFilterId),
+      )
+    : (selectedModule?.questions || []);
 
-  async function handleImportFile(event) {
-    const file = event.target.files?.[0];
+  async function readImportFile(file) {
     setImportRows([]);
     setSelectedImportRowIds([]);
     setShowImportDeleteConfirm(false);
@@ -971,14 +1362,48 @@ function QuestionsTab({
       return;
     }
 
+    const lowerName = file.name.toLowerCase();
+    const supportedFile = ['.xlsx', '.xls', '.csv'].some((extension) =>
+      lowerName.endsWith(extension),
+    );
+
+    if (!supportedFile) {
+      setImportError('Please upload an Excel or CSV file that follows the template.');
+      return;
+    }
+
     try {
       const rows = await readExcelQuestionFile(file);
       setImportRows(rows);
     } catch (error) {
       setImportError(error.message);
-    } finally {
-      event.target.value = '';
     }
+  }
+
+  async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    await readImportFile(file);
+    event.target.value = '';
+  }
+
+  function handleImportDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setImportDragging(true);
+  }
+
+  function handleImportDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setImportDragging(false);
+  }
+
+  async function handleImportDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setImportDragging(false);
+    const file = event.dataTransfer.files?.[0];
+    await readImportFile(file);
   }
 
   async function confirmImport() {
@@ -988,7 +1413,11 @@ function QuestionsTab({
     }
 
     setImporting(true);
-    const success = await onImportQuestions(validImportRows.map(normalizeEditedQuestionImportRow));
+    const scopedRows = validImportRows.map((row) => ({
+      ...normalizeEditedQuestionImportRow(row),
+      chapterId: scopedTopicId,
+    }));
+    const success = await onImportQuestions(scopedRows);
     setImporting(false);
 
     if (success) {
@@ -1040,6 +1469,14 @@ function QuestionsTab({
     setSelectedImportRowIds(validImportRows.map((row) => row.importId));
   }
 
+  async function handleBackToModule() {
+    if (onRefreshModules) {
+      await onRefreshModules();
+    }
+
+    onBackToModule?.();
+  }
+
   function requestDeleteSelectedImportRows() {
     if (!selectedImportRowCount) {
       return;
@@ -1063,23 +1500,43 @@ function QuestionsTab({
   return (
     <section className="teacher-dashboard-panel-in">
       <section className="panel">
-        <label className="field-label">
-          Select Module
-          <select
-            value={selectedModuleId}
-            onChange={(event) => onSelectedModuleChange(Number(event.target.value))}
-          >
-            {modules.map((module) => (
-              <option key={module.id} value={module.id}>
-                {module.moduleCode ? `${module.moduleCode} - ${module.title}` : module.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="module-section-heading">
+          <div>
+            <p className="eyebrow">Question Bank</p>
+            <h2>Manage Topic Questions</h2>
+          </div>
+          {onBackToModule && (
+            <button className="secondary-button" type="button" onClick={handleBackToModule}>
+              Back To Manage Module
+            </button>
+          )}
+        </div>
         {selectedModule && (
-          <p className="muted module-context-text">
-            Questions added here will be linked to {selectedModule.moduleCode || 'this module'} and
-            the current teacher account.
+          <div className="topic-scope-summary">
+            <div>
+              <p className="eyebrow">Module</p>
+              <h3>{selectedModule.moduleCode ? `${selectedModule.moduleCode} - ${selectedModule.title}` : selectedModule.title}</h3>
+              <p>Questions added here stay inside this selected module.</p>
+            </div>
+            <div>
+              <p className="eyebrow">Teacher</p>
+              <h3>Current Account</h3>
+              <p>All changes are linked to your teacher account.</p>
+            </div>
+          </div>
+        )}
+        {activeTopicFilter ? (
+          <div className="topic-context-card">
+            <div>
+              <p className="eyebrow">{activeTopicFilter.chapterCode}</p>
+              <h3>{activeTopicFilter.title}</h3>
+              <p>{activeTopicFilter.description || 'No topic description yet.'}</p>
+            </div>
+            <strong>{visibleQuestions.length} questions</strong>
+          </div>
+        ) : (
+          <p className="lock-warning">
+            Topic not found. Please go back to Manage Module and choose a topic again.
           </p>
         )}
         {selectedModule?.isLocked && (
@@ -1091,6 +1548,13 @@ function QuestionsTab({
 
       <form className="panel form-grid" onSubmit={onAddQuestion}>
         <h2>{editingQuestionId ? 'Edit MCQ Question' : 'Add MCQ Question'}</h2>
+        {activeTopicFilter && (
+          <div className="fixed-topic-card">
+            <p className="eyebrow">Fixed Topic / Chapter</p>
+            <h3>{activeTopicFilter.chapterCode ? `${activeTopicFilter.chapterCode} - ${activeTopicFilter.title}` : activeTopicFilter.title}</h3>
+            <p>New questions and imported questions will be saved into this topic only.</p>
+          </div>
+        )}
         <label>
           Question
           <input
@@ -1187,22 +1651,36 @@ function QuestionsTab({
               Required columns: question, option_a, option_b, option_c, option_d, correct_option.
             </p>
           </div>
-          <a
+          <button
             className="secondary-button template-download-link"
-            href="/templates/Question%20Template.xlsx"
-            download="Question Template.xlsx"
+            type="button"
+            onClick={downloadQuestionTemplate}
           >
             Download Template
-          </a>
+          </button>
         </div>
-        <label>
-          Excel File
-          <input
-            accept=".xlsx,.xls,.csv"
-            type="file"
-            onChange={handleImportFile}
-          />
-        </label>
+        <div
+          className={`excel-drop-zone${importDragging ? ' dragging' : ''}`}
+          onDragOver={handleImportDragOver}
+          onDragLeave={handleImportDragLeave}
+          onDrop={handleImportDrop}
+        >
+          <div className="excel-drop-icon" aria-hidden="true">
+            XLS
+          </div>
+          <div className="excel-drop-copy">
+            <h3>Drop Excel File Here</h3>
+            <p>Drag your completed template into this box and the preview table will fill automatically.</p>
+          </div>
+          <label className="excel-file-picker">
+            <span>Choose File</span>
+            <input
+              accept=".xlsx,.xls,.csv"
+              type="file"
+              onChange={handleImportFile}
+            />
+          </label>
+        </div>
 
         {importError && <Feedback text={importError} />}
 
@@ -1452,6 +1930,7 @@ function QuestionsTab({
             <tr>
               <th>No.</th>
               <th>ID</th>
+              <th>Topic</th>
               <th>Question</th>
               <th>Option A</th>
               <th>Option B</th>
@@ -1463,10 +1942,14 @@ function QuestionsTab({
             </tr>
           </thead>
           <tbody>
-            {selectedModule?.questions?.map((item, index) => (
+            {visibleQuestions.map((item, index) => (
               <tr key={item.id}>
                 <td>{index + 1}</td>
                 <td>{item.questionCode || `Q${String(item.id).padStart(3, '0')}`}</td>
+                <td>
+                  {item.chapterTitle || 'Unassigned'}
+                  {item.chapterIsDeleted && <p className="muted table-subtext">Deleted topic</p>}
+                </td>
                 <td>{item.question}</td>
                 <td>{item.optionA}</td>
                 <td>{item.optionB}</td>
@@ -1496,7 +1979,9 @@ function QuestionsTab({
             ))}
           </tbody>
         </table>
-        {selectedModule?.questions?.length === 0 && <EmptyState text="No questions in this module yet." />}
+        {visibleQuestions.length === 0 && (
+          <EmptyState text={topicFilterId ? 'No questions in this topic yet.' : 'No questions in this module yet.'} />
+        )}
       </div>
     </section>
   );
@@ -1513,9 +1998,18 @@ function SessionsTab({ feedback, modules, onCreateSession, ongoingSession, onSes
     }
   }, []);
 
-  const selectedModule = modules.find((module) => module.id === Number(sessionForm.moduleId));
+  const selectableModules = modules.filter((module) => !module.isLocked && !module.isDeleted);
+  const blockedModuleCount = modules.length - selectableModules.length;
+  const selectedModule = selectableModules.find((module) => module.id === Number(sessionForm.moduleId));
   const sessionBlocked = Boolean(selectedModule?.isLocked);
-  const availableQuestions = selectedModule?.questions || [];
+  const moduleChapters = (selectedModule?.chapters || []).filter((chapter) => !chapter.isDeleted);
+  const selectedChapter = moduleChapters.find((chapter) => chapter.id === Number(sessionForm.chapterId));
+  const moduleHasTopics = moduleChapters.length > 0;
+  const availableQuestions = selectedChapter
+    ? (selectedModule?.questions || []).filter(
+        (question) => !question.chapterIsDeleted && Number(question.chapterId) === Number(selectedChapter.id),
+      )
+    : [];
   const availableQuestionCount = availableQuestions.length;
   const isManualMode = sessionForm.questionSelectionMode === 'manual';
   const isClassicMcq = sessionForm.gameType === 'classic_mcq';
@@ -1526,21 +2020,26 @@ function SessionsTab({ feedback, modules, onCreateSession, ongoingSession, onSes
     ? selectedQuestionIds.length
     : Number(sessionForm.questionCount) || 0;
   const generateDisabled = !hasSelectedGameType ||
-    sessionBlocked || availableQuestionCount === 0 ||
+    selectableModules.length === 0 || sessionBlocked || !moduleHasTopics || !selectedChapter || availableQuestionCount === 0 ||
     Boolean(ongoingSession) ||
     (isManualMode && selectedQuestionIds.length === 0) ||
     (isQrPairMatch && effectiveQuestionCount < 2);
 
   function updateSelectedModule(moduleId) {
-    const nextModule = modules.find((module) => module.id === Number(moduleId));
+    const nextModule = selectableModules.find((module) => module.id === Number(moduleId));
+    const nextChapterId = (nextModule?.chapters || []).find((chapter) => !chapter.isDeleted)?.id || '';
+    const nextTopicQuestionCount = (nextModule?.questions || []).filter(
+      (question) => !question.chapterIsDeleted && Number(question.chapterId) === Number(nextChapterId),
+    ).length;
     const nextQuestionCount = Math.min(
       Number(sessionForm.questionCount) || (isQrPairMatch ? 2 : 1),
-      Math.max(nextModule?.questions?.length || 1, 1),
+      Math.max(nextTopicQuestionCount || 1, 1),
     );
 
     onSessionFormChange({
       ...sessionForm,
-      moduleId: Number(moduleId),
+      moduleId: nextModule?.id || '',
+      chapterId: nextChapterId,
       questionCount: nextQuestionCount,
       selectedQuestionIds: [],
     });
@@ -1635,32 +2134,82 @@ function SessionsTab({ feedback, modules, onCreateSession, ongoingSession, onSes
         {hasSelectedGameType && (
           <form className="panel form-grid session-options-reveal" onSubmit={onCreateSession}>
             <label>
-              Module
+              1. Module
               <select
-                value={sessionForm.moduleId}
+                disabled={selectableModules.length === 0}
+                value={selectedModule ? sessionForm.moduleId : ''}
                 onChange={(event) =>
                   updateSelectedModule(event.target.value)
                 }
               >
-                {modules.map((module) => (
-                  <option disabled={module.isLocked} key={module.id} value={module.id}>
-                    {module.title}{module.isLocked ? ' (Locked)' : ''}
+                <option value="">
+                  {selectableModules.length ? 'Choose a module' : 'No available modules'}
+                </option>
+                {selectableModules.map((module) => (
+                  <option key={module.id} value={module.id}>
+                    {module.moduleCode ? `${module.moduleCode} - ${module.title}` : module.title}
                   </option>
                 ))}
               </select>
             </label>
-            {sessionBlocked && (
+            {blockedModuleCount > 0 && (
               <p className="lock-warning">
-                This module is locked by admin and cannot be used to create a game session.
+                Locked modules are hidden here because admin locked them. Unlock the module before using it in a session.
+              </p>
+            )}
+            {selectedModule && (
+              <label>
+                2. Topic / Chapter
+                <select
+                  disabled={!moduleHasTopics}
+                  value={sessionForm.chapterId || ''}
+                  onChange={(event) =>
+                    onSessionFormChange({
+                      ...sessionForm,
+                      chapterId: event.target.value,
+                      questionCount: Math.min(
+                        Number(sessionForm.questionCount) || (isQrPairMatch ? 2 : 1),
+                        Math.max(
+                          (selectedModule.questions || []).filter(
+                            (question) => !question.chapterIsDeleted && Number(question.chapterId) === Number(event.target.value),
+                          ).length,
+                          1,
+                        ),
+                      ),
+                      selectedQuestionIds: [],
+                    })
+                  }
+                >
+                  <option value="">
+                    {moduleHasTopics ? 'Choose a topic' : 'No topics available'}
+                  </option>
+                  {moduleChapters.map((chapter) => (
+                    <option key={chapter.id} value={chapter.id}>
+                      {chapter.chapterCode ? `${chapter.chapterCode} - ${chapter.title}` : chapter.title}
+                      {` (${chapter.questionCount || 0} questions)`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {selectedModule && !moduleHasTopics && (
+              <p className="lock-warning">
+                This module has no topics yet. Please open Manage Module and create at least one topic first.
               </p>
             )}
             <p className="muted session-question-count">
-              This module has <strong>{availableQuestionCount}</strong> questions available.
+              {selectedChapter ? (
+                <>
+                  Topic <strong>{selectedChapter.title}</strong> has <strong>{availableQuestionCount}</strong> questions available.
+                </>
+              ) : (
+                <>Choose a topic to see available questions.</>
+              )}
               {isQrPairMatch ? ' QR Pair Match needs at least 2 questions.' : ''}
             </p>
 
             <fieldset className="session-mode-field">
-              <legend>Question Selection</legend>
+              <legend>3. Question Selection</legend>
               <div className="session-mode-grid">
                 <label className={isManualMode ? 'session-mode-card' : 'session-mode-card active'}>
                   <input
@@ -1672,7 +2221,7 @@ function SessionsTab({ feedback, modules, onCreateSession, ongoingSession, onSes
                   />
                   <span>
                     <strong>Random Questions</strong>
-                    <small>System randomly chooses questions from this module.</small>
+                    <small>System randomly chooses questions from the selected topic.</small>
                   </span>
                 </label>
                 <label className={isManualMode ? 'session-mode-card active' : 'session-mode-card'}>
@@ -1792,7 +2341,7 @@ function SessionsTab({ feedback, modules, onCreateSession, ongoingSession, onSes
                       </span>
                     </label>
                   ))}
-                  {availableQuestionCount === 0 && <EmptyState text="No questions in this module yet." />}
+                  {availableQuestionCount === 0 && <EmptyState text="No questions in this topic yet." />}
                 </div>
               </div>
             )}
@@ -1818,6 +2367,14 @@ function getSessionModule(modules, session) {
   return modules.find((module) => module.id === session.moduleId);
 }
 
+function getSessionModuleTitle(modules, session) {
+  return session.moduleTitle || getSessionModule(modules, session)?.title || '-';
+}
+
+function getSessionTopicTitle(session) {
+  return session.topicTitle && session.topicTitle !== '-' ? session.topicTitle : 'Unassigned';
+}
+
 function getGameTypeLabel(gameType) {
   return gameType === 'qr_pair_match' ? 'QR Pair Match' : 'Classic MCQ';
 }
@@ -1841,7 +2398,13 @@ function SessionHistoryTab({ modules, onOpenResults, onReviewSession, sessions }
                 >
                   {getGameTypeLabel(session.gameType)}
                 </span>
-                <p>{getSessionModule(modules, session)?.title || '-'}</p>
+                <p>
+                  <strong>Module:</strong> {getSessionModuleTitle(modules, session)}
+                </p>
+                <p className="muted">
+                  Topic: {getSessionTopicTitle(session)}
+                  {session.topicCode ? ` (${session.topicCode})` : ''}
+                </p>
                 <p className="muted">Questions: {session.questionIds?.length || session.questionCount || 0}</p>
                 <p className="muted">{session.createdAt}</p>
               </div>
@@ -1913,6 +2476,11 @@ export function TeacherDashboardPage({
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [joinRequestNotifications, setJoinRequestNotifications] = useState([]);
   const [notificationError, setNotificationError] = useState('');
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardError, setLeaderboardError] = useState('');
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [manageReturnTab, setManageReturnTab] = useState('modules');
+  const [questionTopicFilterId, setQuestionTopicFilterId] = useState('');
   const teacherInitial = useMemo(() => getInitial(currentUser?.name), [currentUser?.name]);
 
   useEffect(() => {
@@ -1952,14 +2520,59 @@ export function TeacherDashboardPage({
     };
   }, [modules]);
 
-  function openQuestionsForModule(moduleId) {
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadLeaderboard({ quiet = false } = {}) {
+      if (!quiet) {
+        setLeaderboardLoading(true);
+      }
+      setLeaderboardError('');
+
+      try {
+        const data = await fetchStudentExperienceLeaderboard(10);
+
+        if (isMounted) {
+          setLeaderboard(data);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setLeaderboardError(error.message);
+        }
+      } finally {
+        if (isMounted && !quiet) {
+          setLeaderboardLoading(false);
+        }
+      }
+    }
+
+    loadLeaderboard();
+    const refreshTimer = window.setInterval(() => loadLeaderboard({ quiet: true }), 12000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(refreshTimer);
+    };
+  }, []);
+
+  function openQuestionsForModule(moduleId, topicId = '') {
     onSelectedModuleChange(moduleId);
+    setQuestionTopicFilterId(topicId ? String(topicId) : '');
+    onQuestionFormChange({
+      ...questionForm,
+      chapterId: topicId && topicId !== 'unassigned' ? String(topicId) : '',
+    });
     setActiveTab('questions');
   }
 
   function openStudentsForModule(moduleId) {
     onSelectedModuleChange(moduleId);
     setActiveTab('module-students');
+  }
+
+  function openManageModule(moduleId) {
+    onSelectedModuleChange(moduleId);
+    setActiveTab('module-manage');
   }
 
   function openRequestNotification(notification) {
@@ -2012,6 +2625,13 @@ export function TeacherDashboardPage({
             onClick={() => setActiveTab('history')}
           >
             History
+          </button>
+          <button
+            className={activeTab === 'leaderboard' ? 'teacher-tab active' : 'teacher-tab'}
+            type="button"
+            onClick={() => setActiveTab('leaderboard')}
+          >
+            Leaderboard
           </button>
           <span className="teacher-tab-indicator" style={getIndicatorStyle(activeTab)} />
         </nav>
@@ -2133,9 +2753,31 @@ export function TeacherDashboardPage({
             onAddModule={onAddModule}
             onDeleteModule={onDeleteModule}
             onEditModule={onEditModule}
-            onManageQuestions={openQuestionsForModule}
+            onManageModule={openManageModule}
             onManageStudents={openStudentsForModule}
             onModuleFormChange={onModuleFormChange}
+            onRefreshModules={onRefreshModules}
+            onRequestModuleReview={onRequestModuleReview}
+            onToggleModuleVisibility={onToggleModuleVisibility}
+          />
+        )}
+
+        {activeTab === 'module-manage' && (
+          <ManageModuleTab
+            currentUser={currentUser}
+            feedback={feedback}
+            module={selectedModule}
+            onBack={() => setActiveTab('modules')}
+            onDeleteModule={onDeleteModule}
+            onEditModule={onEditModule}
+            onManageTopicQuestions={(moduleId, topicId) => {
+              setManageReturnTab('module-manage');
+              openQuestionsForModule(moduleId, topicId);
+            }}
+            onManageStudents={(moduleId) => {
+              setManageReturnTab('module-manage');
+              openStudentsForModule(moduleId);
+            }}
             onRefreshModules={onRefreshModules}
             onRequestModuleReview={onRequestModuleReview}
             onToggleModuleVisibility={onToggleModuleVisibility}
@@ -2146,7 +2788,7 @@ export function TeacherDashboardPage({
           <ModuleStudentsTab
             currentUser={currentUser}
             module={selectedModule}
-            onBack={() => setActiveTab('modules')}
+            onBack={() => setActiveTab(manageReturnTab)}
           />
         )}
 
@@ -2162,9 +2804,12 @@ export function TeacherDashboardPage({
             onImportQuestions={onImportQuestions}
             onQuestionFormChange={onQuestionFormChange}
             onSelectedModuleChange={onSelectedModuleChange}
+            onTopicFilterChange={setQuestionTopicFilterId}
             questionForm={questionForm}
             selectedModule={selectedModule}
             selectedModuleId={selectedModuleId}
+            topicFilterId={questionTopicFilterId}
+            onBackToModule={() => setActiveTab(manageReturnTab)}
           />
         )}
 
@@ -2185,6 +2830,14 @@ export function TeacherDashboardPage({
             onOpenResults={onOpenResults}
             onReviewSession={onReviewSession}
             sessions={sessions}
+          />
+        )}
+
+        {activeTab === 'leaderboard' && (
+          <TeacherLeaderboardPage
+            error={leaderboardError}
+            leaderboard={leaderboard}
+            loading={leaderboardLoading}
           />
         )}
 

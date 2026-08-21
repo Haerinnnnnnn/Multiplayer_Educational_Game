@@ -24,9 +24,18 @@ export function CreateSessionPage({
     }
   }, []);
 
-  const selectedModule = modules.find((module) => module.id === Number(sessionForm.moduleId));
+  const selectableModules = modules.filter((module) => !module.isLocked && !module.isDeleted);
+  const blockedModuleCount = modules.length - selectableModules.length;
+  const selectedModule = selectableModules.find((module) => module.id === Number(sessionForm.moduleId));
   const sessionBlocked = Boolean(selectedModule?.isLocked);
-  const availableQuestions = selectedModule?.questions || [];
+  const moduleChapters = (selectedModule?.chapters || []).filter((chapter) => !chapter.isDeleted);
+  const selectedChapter = moduleChapters.find((chapter) => chapter.id === Number(sessionForm.chapterId));
+  const moduleHasTopics = moduleChapters.length > 0;
+  const availableQuestions = selectedChapter
+    ? (selectedModule?.questions || []).filter(
+        (question) => !question.chapterIsDeleted && Number(question.chapterId) === Number(selectedChapter.id),
+      )
+    : [];
   const availableQuestionCount = availableQuestions.length;
   const isManualMode = sessionForm.questionSelectionMode === 'manual';
   const isClassicMcq = sessionForm.gameType === 'classic_mcq';
@@ -37,21 +46,26 @@ export function CreateSessionPage({
     ? selectedQuestionIds.length
     : Number(sessionForm.questionCount) || 0;
   const generateDisabled = !hasSelectedGameType ||
-    sessionBlocked || availableQuestionCount === 0 ||
+    selectableModules.length === 0 || sessionBlocked || !moduleHasTopics || !selectedChapter || availableQuestionCount === 0 ||
     Boolean(ongoingSession) ||
     (isManualMode && selectedQuestionIds.length === 0) ||
     (isQrPairMatch && effectiveQuestionCount < 2);
 
   function updateSelectedModule(moduleId) {
-    const nextModule = modules.find((module) => module.id === Number(moduleId));
+    const nextModule = selectableModules.find((module) => module.id === Number(moduleId));
+    const nextChapterId = (nextModule?.chapters || []).find((chapter) => !chapter.isDeleted)?.id || '';
+    const nextTopicQuestionCount = (nextModule?.questions || []).filter(
+      (question) => !question.chapterIsDeleted && Number(question.chapterId) === Number(nextChapterId),
+    ).length;
     const nextQuestionCount = Math.min(
       Number(sessionForm.questionCount) || (isQrPairMatch ? 2 : 1),
-      Math.max(nextModule?.questions?.length || 1, 1),
+      Math.max(nextTopicQuestionCount || 1, 1),
     );
 
     onSessionFormChange({
       ...sessionForm,
-      moduleId: Number(moduleId),
+      moduleId: nextModule?.id || '',
+      chapterId: nextChapterId,
       questionCount: nextQuestionCount,
       selectedQuestionIds: [],
     });
@@ -146,30 +160,80 @@ export function CreateSessionPage({
         {hasSelectedGameType && (
           <form className="panel form-grid session-options-reveal" onSubmit={onCreateSession}>
             <label>
-              Module
+              1. Module
               <select
-                value={sessionForm.moduleId}
+                disabled={selectableModules.length === 0}
+                value={selectedModule ? sessionForm.moduleId : ''}
                 onChange={(event) => updateSelectedModule(event.target.value)}
               >
-                {modules.map((module) => (
-                  <option disabled={module.isLocked} key={module.id} value={module.id}>
-                    {module.title}{module.isLocked ? ' (Locked)' : ''}
+                <option value="">
+                  {selectableModules.length ? 'Choose a module' : 'No available modules'}
+                </option>
+                {selectableModules.map((module) => (
+                  <option key={module.id} value={module.id}>
+                    {module.moduleCode ? `${module.moduleCode} - ${module.title}` : module.title}
                   </option>
                 ))}
               </select>
             </label>
-            {sessionBlocked && (
+            {blockedModuleCount > 0 && (
               <p className="lock-warning">
-                This module is locked by admin and cannot be used to create a game session.
+                Locked modules are hidden here because admin locked them. Unlock the module before using it in a session.
+              </p>
+            )}
+            {selectedModule && (
+              <label>
+                2. Topic / Chapter
+                <select
+                  disabled={!moduleHasTopics}
+                  value={sessionForm.chapterId || ''}
+                  onChange={(event) =>
+                    onSessionFormChange({
+                      ...sessionForm,
+                      chapterId: event.target.value,
+                      questionCount: Math.min(
+                        Number(sessionForm.questionCount) || (isQrPairMatch ? 2 : 1),
+                        Math.max(
+                          (selectedModule.questions || []).filter(
+                            (question) => !question.chapterIsDeleted && Number(question.chapterId) === Number(event.target.value),
+                          ).length,
+                          1,
+                        ),
+                      ),
+                      selectedQuestionIds: [],
+                    })
+                  }
+                >
+                  <option value="">
+                    {moduleHasTopics ? 'Choose a topic' : 'No topics available'}
+                  </option>
+                  {moduleChapters.map((chapter) => (
+                    <option key={chapter.id} value={chapter.id}>
+                      {chapter.chapterCode ? `${chapter.chapterCode} - ${chapter.title}` : chapter.title}
+                      {` (${chapter.questionCount || 0} questions)`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {selectedModule && !moduleHasTopics && (
+              <p className="lock-warning">
+                This module has no topics yet. Please open Manage Module and create at least one topic first.
               </p>
             )}
             <p className="muted session-question-count">
-              This module has <strong>{availableQuestionCount}</strong> questions available.
+              {selectedChapter ? (
+                <>
+                  Topic <strong>{selectedChapter.title}</strong> has <strong>{availableQuestionCount}</strong> questions available.
+                </>
+              ) : (
+                <>Choose a topic to see available questions.</>
+              )}
               {isQrPairMatch ? ' QR Pair Match needs at least 2 questions.' : ''}
             </p>
 
             <fieldset className="session-mode-field">
-              <legend>Question Selection</legend>
+              <legend>3. Question Selection</legend>
               <div className="session-mode-grid">
                 <label className={isManualMode ? 'session-mode-card' : 'session-mode-card active'}>
                   <input
@@ -181,7 +245,7 @@ export function CreateSessionPage({
                   />
                   <span>
                     <strong>Random Questions</strong>
-                    <small>System randomly chooses questions from this module.</small>
+                    <small>System randomly chooses questions from the selected topic.</small>
                   </span>
                 </label>
                 <label className={isManualMode ? 'session-mode-card active' : 'session-mode-card'}>
@@ -301,7 +365,7 @@ export function CreateSessionPage({
                       </span>
                     </label>
                   ))}
-                  {availableQuestionCount === 0 && <EmptyState text="No questions in this module yet." />}
+                  {availableQuestionCount === 0 && <EmptyState text="No questions in this topic yet." />}
                 </div>
               </div>
             )}
