@@ -14,6 +14,10 @@ export const DASHBOARD_PAGE_PATHS = {
 export const SESSION_PAGE_PATHS = {
   'student-waiting': '/session/waiting',
   'student-game': '/session/game',
+  'live-lobby': '/session/lobby',
+  'teacher-control': '/session/control',
+  'session-summary-loading': '/session/summary',
+  'session-results': '/session/result',
 };
 
 const PUBLIC_PATH_PAGES = Object.entries(PUBLIC_PAGE_PATHS).reduce((collection, [page, path]) => {

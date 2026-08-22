@@ -34,6 +34,7 @@ export function LiveLobbyPage({
   const [accessFeedback, setAccessFeedback] = useState('');
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [closingRoom, setClosingRoom] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
   const [kickConfirmParticipant, setKickConfirmParticipant] = useState(null);
   const [kickSuccessMessage, setKickSuccessMessage] = useState('');
   const [kickingParticipantId, setKickingParticipantId] = useState(null);
@@ -125,6 +126,30 @@ export function LiveLobbyPage({
     }
   }
 
+  async function copySessionCode() {
+    const code = activeSession?.code;
+    if (!code) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      const input = document.createElement('textarea');
+      input.value = code;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+    }
+
+    setCopiedCode(true);
+    window.setTimeout(() => setCopiedCode(false), 1400);
+  }
+
   async function confirmKickParticipant() {
     const participant = kickConfirmParticipant;
 
@@ -149,7 +174,18 @@ export function LiveLobbyPage({
         <div className="split-grid">
           <section className="panel">
             <p className="eyebrow">Session Code</p>
-            <h2 className="session-code">{activeSession?.code}</h2>
+            <div className="session-code-row">
+              <h2 className="session-code">{activeSession?.code}</h2>
+              <button
+                aria-label="Copy session code"
+                className={`session-copy-button ${copiedCode ? 'copied' : ''}`}
+                title={copiedCode ? 'Copied' : 'Copy session code'}
+                type="button"
+                onClick={copySessionCode}
+              >
+                <span aria-hidden="true">{copiedCode ? '✓' : '⧉'}</span>
+              </button>
+            </div>
             {activeModule && (
               <div className="lobby-module-access">
                 <span className={`visibility-badge ${activeModule.visibility === 'public' ? 'public' : 'private'}`}>
@@ -162,15 +198,25 @@ export function LiveLobbyPage({
                 </p>
               </div>
             )}
-            {qrImageUrl && (
-              <img className="qr-code-image" src={qrImageUrl} alt={`Join session ${activeSession?.code}`} />
-            )}
+            <div className="lobby-qr-action-row">
+              {qrImageUrl && (
+                <img className="qr-code-image" src={qrImageUrl} alt={`Join session ${activeSession?.code}`} />
+              )}
+              <div className="lobby-action-stack">
+                <button
+                  className="primary-button"
+                  disabled={Boolean(startGameError)}
+                  type="button"
+                  onClick={onStartGame}
+                >
+                  Start Game
+                </button>
+                <button className="secondary-button danger-button" type="button" onClick={() => setCloseConfirmOpen(true)}>
+                  Close Room
+                </button>
+              </div>
+            </div>
             <p className="muted">Students can scan the QR code or enter this code on the Join Session page.</p>
-            {joinUrl && (
-              <a className="join-session-link" href={joinUrl}>
-                {joinUrl}
-              </a>
-            )}
           </section>
           <section className="panel">
             <div className="module-section-heading">
@@ -178,9 +224,6 @@ export function LiveLobbyPage({
                 <h2>Joined Students</h2>
                 <p className="muted">{participantCount} student{participantCount === 1 ? '' : 's'} joined</p>
               </div>
-              <button className="secondary-button" type="button" onClick={onRefreshSession}>
-                Refresh Joined Students
-              </button>
             </div>
             {activeSession?.gameType === 'qr_pair_match' && (
               <p className="muted">
@@ -188,24 +231,13 @@ export function LiveLobbyPage({
                 Odd or even student counts can start from 2 students.
               </p>
             )}
-            {startGameError && <p className="lock-warning">{startGameError}</p>}
-            <ParticipantList
-              kickingParticipantId={kickingParticipantId}
-              session={activeSession}
-              onKickParticipant={setKickConfirmParticipant}
-            />
-            <div className="button-row">
-              <button
-                className="primary-button"
-                disabled={Boolean(startGameError)}
-                type="button"
-                onClick={onStartGame}
-              >
-                Start Game
-              </button>
-              <button className="secondary-button danger-button" type="button" onClick={() => setCloseConfirmOpen(true)}>
-                Close Room
-              </button>
+            {startGameError && <p className="lock-warning lobby-start-warning">{startGameError}</p>}
+            <div className="lobby-participant-scroll">
+              <ParticipantList
+                kickingParticipantId={kickingParticipantId}
+                session={activeSession}
+                onKickParticipant={setKickConfirmParticipant}
+              />
             </div>
           </section>
           {activeModule?.visibility === 'private' && (
@@ -215,9 +247,6 @@ export function LiveLobbyPage({
                   <h2>Private Module Join Requests</h2>
                   <p className="muted">Students who scan this QR can request access here.</p>
                 </div>
-                <button className="secondary-button" disabled={loadingRequests} type="button" onClick={loadAccessRequests}>
-                  {loadingRequests ? 'Refreshing...' : 'Refresh Requests'}
-                </button>
               </div>
 
               {accessFeedback && <p className="feedback">{accessFeedback}</p>}

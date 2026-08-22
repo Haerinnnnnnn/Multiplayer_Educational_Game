@@ -25,7 +25,6 @@ export function CreateSessionPage({
   }, []);
 
   const selectableModules = modules.filter((module) => !module.isLocked && !module.isDeleted);
-  const blockedModuleCount = modules.length - selectableModules.length;
   const selectedModule = selectableModules.find((module) => module.id === Number(sessionForm.moduleId));
   const sessionBlocked = Boolean(selectedModule?.isLocked);
   const moduleChapters = (selectedModule?.chapters || []).filter((chapter) => !chapter.isDeleted);
@@ -176,11 +175,6 @@ export function CreateSessionPage({
                 ))}
               </select>
             </label>
-            {blockedModuleCount > 0 && (
-              <p className="lock-warning">
-                Locked modules are hidden here because admin locked them. Unlock the module before using it in a session.
-              </p>
-            )}
             {selectedModule && (
               <label>
                 2. Topic / Chapter

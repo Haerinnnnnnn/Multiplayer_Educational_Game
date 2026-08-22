@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { EmptyState, Feedback, Stat } from './Common.jsx';
 
 function getRankLabel(rank) {
@@ -108,6 +108,7 @@ export function ResultsPanel({
     ? getExperienceLogForParticipant(experienceLogs, currentParticipant)
     : null;
   const sessionQuestions = getSessionQuestions(session);
+  const [showSessionQuestions, setShowSessionQuestions] = useState(false);
 
   return (
     <div className="results-podium-shell">
@@ -213,16 +214,33 @@ export function ResultsPanel({
             <p className="eyebrow">Session Questions</p>
             <h2>Questions And Explanations</h2>
             <p className="muted">
-              Showing only the questions selected for this session.
+              {showSessionQuestions
+                ? 'Showing only the questions selected for this session.'
+                : `${sessionQuestions.length} selected question${sessionQuestions.length === 1 ? '' : 's'} hidden.`}
             </p>
           </div>
-          <div className="result-session-meta compact">
-            <span>Module: {session.moduleTitle || '-'}</span>
-            <span>Topic: {session.topicTitle || 'Unassigned'}</span>
+          <div className="results-question-actions">
+            <div className="result-session-meta compact">
+              <span>Module: {session.moduleTitle || '-'}</span>
+              <span>Topic: {session.topicTitle || 'Unassigned'}</span>
+            </div>
+            <button
+              className="results-question-toggle"
+              type="button"
+              onClick={() => setShowSessionQuestions((current) => !current)}
+            >
+              {showSessionQuestions ? 'Hide Questions' : 'Show Questions'}
+            </button>
           </div>
         </div>
 
-        {sessionQuestions.length > 0 ? (
+        {!showSessionQuestions && (
+          <div className="results-question-collapsed">
+            Press Show Questions to review the selected questions, answers, and explanations.
+          </div>
+        )}
+
+        {showSessionQuestions && sessionQuestions.length > 0 ? (
           <div className="results-question-list">
             {sessionQuestions.map((question, index) => (
               <article className="results-question-card" key={question.id}>
@@ -253,9 +271,9 @@ export function ResultsPanel({
               </article>
             ))}
           </div>
-        ) : (
+        ) : showSessionQuestions ? (
           <EmptyState text="No question details found for this session." />
-        )}
+        ) : null}
       </section>
     </div>
   );

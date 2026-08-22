@@ -196,10 +196,23 @@ function UsersTab({
   const [cleanupEmail, setCleanupEmail] = useState('');
   const [creatingUser, setCreatingUser] = useState(false);
   const [createForm, setCreateForm] = useState(getEmptyCreateUserForm);
+  const [userFilters, setUserFilters] = useState({
+    name: '',
+    email: '',
+    school: '',
+  });
   const students = users.filter((user) => user.role?.toLowerCase() === 'student');
   const teachers = users.filter((user) => user.role?.toLowerCase() === 'teacher');
   const visibleUsers = activeRole === 'student' ? students : teachers;
+  const filteredUsers = visibleUsers.filter((user) => {
+    const nameMatch = (user.name || '').toLowerCase().includes(userFilters.name.trim().toLowerCase());
+    const emailMatch = (user.email || '').toLowerCase().includes(userFilters.email.trim().toLowerCase());
+    const schoolMatch = (user.schoolName || '').toLowerCase().includes(userFilters.school.trim().toLowerCase());
+
+    return nameMatch && emailMatch && schoolMatch;
+  });
   const onlineUsers = users.filter((user) => user.presenceStatus === 'online');
+  const hasUserFilter = Object.values(userFilters).some((value) => value.trim());
 
   function startEdit(user) {
     setEditingUser({ ...user });
@@ -462,6 +475,50 @@ function UsersTab({
         </button>
       </div>
 
+      <section className="panel admin-user-filter-panel">
+        <div>
+          <p className="eyebrow">User Search</p>
+          <h2>Filter {activeRole === 'student' ? 'Students' : 'Teachers'}</h2>
+          <p className="muted">
+            Showing {filteredUsers.length} of {visibleUsers.length} {activeRole === 'student' ? 'students' : 'teachers'}.
+          </p>
+        </div>
+        <div className="admin-user-filter-grid">
+          <label>
+            Name
+            <input
+              value={userFilters.name}
+              onChange={(event) => setUserFilters({ ...userFilters, name: event.target.value })}
+              placeholder="Search by name"
+            />
+          </label>
+          <label>
+            Email
+            <input
+              value={userFilters.email}
+              onChange={(event) => setUserFilters({ ...userFilters, email: event.target.value })}
+              placeholder="Search by email"
+            />
+          </label>
+          <label>
+            School
+            <input
+              value={userFilters.school}
+              onChange={(event) => setUserFilters({ ...userFilters, school: event.target.value })}
+              placeholder="Search by school"
+            />
+          </label>
+          <button
+            className="secondary-button"
+            disabled={!hasUserFilter}
+            type="button"
+            onClick={() => setUserFilters({ name: '', email: '', school: '' })}
+          >
+            Clear Filter
+          </button>
+        </div>
+      </section>
+
       <div className="table-panel admin-section-table">
         <table>
           <thead>
@@ -479,7 +536,7 @@ function UsersTab({
             </tr>
           </thead>
           <tbody>
-            {visibleUsers.map((user) => (
+            {filteredUsers.map((user) => (
               <tr key={user.id}>
                 <td>{user.userCode}</td>
                 <td>{user.name}</td>
@@ -523,9 +580,15 @@ function UsersTab({
             ))}
           </tbody>
         </table>
-        {!loading && visibleUsers.length === 0 && (
+        {!loading && filteredUsers.length === 0 && (
           <EmptyState
-            text={activeRole === 'student' ? 'No students found yet.' : 'No teachers found yet.'}
+            text={
+              hasUserFilter
+                ? `No ${activeRole === 'student' ? 'students' : 'teachers'} match this filter.`
+                : activeRole === 'student'
+                  ? 'No students found yet.'
+                  : 'No teachers found yet.'
+            }
           />
         )}
       </div>

@@ -34,7 +34,7 @@ function getInitial(name) {
 }
 
 function getIndicatorStyle(activeTab) {
-  const tabOrder = ['home', 'modules', 'sessions', 'history', 'leaderboard'];
+  const tabOrder = ['home', 'modules', 'sessions', 'history', 'analyze', 'leaderboard'];
   const index = tabOrder.indexOf(activeTab);
 
   if (index < 0) {
@@ -1999,7 +1999,6 @@ function SessionsTab({ feedback, modules, onCreateSession, ongoingSession, onSes
   }, []);
 
   const selectableModules = modules.filter((module) => !module.isLocked && !module.isDeleted);
-  const blockedModuleCount = modules.length - selectableModules.length;
   const selectedModule = selectableModules.find((module) => module.id === Number(sessionForm.moduleId));
   const sessionBlocked = Boolean(selectedModule?.isLocked);
   const moduleChapters = (selectedModule?.chapters || []).filter((chapter) => !chapter.isDeleted);
@@ -2152,11 +2151,6 @@ function SessionsTab({ feedback, modules, onCreateSession, ongoingSession, onSes
                 ))}
               </select>
             </label>
-            {blockedModuleCount > 0 && (
-              <p className="lock-warning">
-                Locked modules are hidden here because admin locked them. Unlock the module before using it in a session.
-              </p>
-            )}
             {selectedModule && (
               <label>
                 2. Topic / Chapter
@@ -2379,11 +2373,824 @@ function getGameTypeLabel(gameType) {
   return gameType === 'qr_pair_match' ? 'QR Pair Match' : 'Classic MCQ';
 }
 
+function getSessionDate(session) {
+  const rawDate = session.createdAtRaw || session.createdAt;
+  const parsedDate = rawDate ? new Date(rawDate) : null;
+
+  return parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null;
+}
+
+function isSameCalendarDate(leftDate, rightDate) {
+  return (
+    leftDate.getFullYear() === rightDate.getFullYear()
+    && leftDate.getMonth() === rightDate.getMonth()
+    && leftDate.getDate() === rightDate.getDate()
+  );
+}
+
+function isSessionInHistoryDateRange(session, dateRange) {
+  if (dateRange === 'all') {
+    return true;
+  }
+
+  const sessionDate = getSessionDate(session);
+
+  if (!sessionDate) {
+    return false;
+  }
+
+  const today = new Date();
+
+  if (dateRange === 'today') {
+    return isSameCalendarDate(sessionDate, today);
+  }
+
+  if (dateRange === 'week') {
+    const weekStart = new Date(today);
+    const daysFromMonday = (weekStart.getDay() + 6) % 7;
+    weekStart.setDate(weekStart.getDate() - daysFromMonday);
+    weekStart.setHours(0, 0, 0, 0);
+
+    return sessionDate >= weekStart && sessionDate <= today;
+  }
+
+  if (dateRange === 'month') {
+    return (
+      sessionDate.getFullYear() === today.getFullYear()
+      && sessionDate.getMonth() === today.getMonth()
+    );
+  }
+
+  return true;
+}
+
+const ANALYZE_GAME_MODES = [
+  {
+    value: 'classic_mcq',
+    label: 'Classic MCQ',
+    eyebrow: 'MCQ Analysis',
+    description: 'Review answer correctness, response speed, and scores from normal MCQ sessions.',
+    primaryMetric: 'Correct Average',
+    topicMetric: 'Correct Avg',
+    attemptLabel: 'answers',
+    studentMetric: 'Correct Avg',
+    timeMetric: 'Avg Answer Time',
+    detailText: 'correct answers',
+    emptyText: 'No Classic MCQ sessions found for this module yet.',
+  },
+  {
+    value: 'qr_pair_match',
+    label: 'QR Pair Match',
+    eyebrow: 'QR Analysis',
+    description: 'Review successful matches, solve speed, wrong scans, and teamwork performance.',
+    primaryMetric: 'Match Success',
+    topicMetric: 'Success Rate',
+    attemptLabel: 'matches',
+    studentMetric: 'Match Success',
+    timeMetric: 'Avg Solve Time',
+    detailText: 'successful matches',
+    emptyText: 'No QR Pair Match sessions found for this module yet.',
+  },
+];
+
+function getAnalyzeGameMode(gameType) {
+  return ANALYZE_GAME_MODES.find((mode) => mode.value === gameType) || ANALYZE_GAME_MODES[0];
+}
+
+function formatPercent(correct, total) {
+  if (!total) {
+    return '0%';
+  }
+
+  return `${Math.round((correct / total) * 100)}%`;
+}
+
+function formatSeconds(seconds) {
+  if (!Number.isFinite(seconds)) {
+    return '-';
+  }
+
+  return `${Number(seconds).toFixed(seconds % 1 === 0 ? 0 : 1)}s`;
+}
+
+function getAverage(numbers) {
+  const validNumbers = numbers.filter((number) => Number.isFinite(number));
+
+  if (!validNumbers.length) {
+    return null;
+  }
+
+  return validNumbers.reduce((total, number) => total + number, 0) / validNumbers.length;
+}
+
+function getTopicKey(topicId) {
+  return topicId ? String(topicId) : 'unassigned';
+}
+
+function getQuestionTopic(module, questionId, session) {
+  const question = (module?.questions || []).find((item) => Number(item.id) === Number(questionId));
+  const firstSessionTopic = (session?.topics || [])[0];
+
+  return {
+    id: question?.chapterId || session?.topicId || firstSessionTopic?.id || null,
+    code: question?.chapterCode || session?.topicCode || firstSessionTopic?.code || '',
+    title: question?.chapterTitle || getSessionTopicTitle(session),
+  };
+}
+
+function getQrPairAttempts(session, module) {
+  return (session?.qrPair?.turns || [])
+    .flatMap((turn) =>
+      (turn.assignments || []).map((assignment) => ({
+        ...assignment,
+        turnNumber: turn.turnNumber,
+      })),
+    )
+    .filter((assignment) => assignment.assignmentType === 'pair' && assignment.status !== 'pending')
+    .map((assignment) => {
+      const participant = (session.participants || []).find(
+        (item) => Number(item.participantId) === Number(assignment.questionHolderParticipantId),
+      );
+      const topic = getQuestionTopic(module, assignment.questionId, session);
+
+      return {
+        sessionId: session.id,
+        sessionCode: session.code,
+        gameType: session.gameType,
+        studentId: participant?.studentId || participant?.id || '',
+        studentName: participant?.name || '-',
+        questionId: assignment.questionId,
+        topic,
+        correct: assignment.status === 'correct',
+        status: assignment.status,
+        seconds: Number.isFinite(assignment.answeredSeconds) ? assignment.answeredSeconds : null,
+        score: assignment.scoreAwarded || 0,
+        wrongScans: Number(assignment.wrongScans || assignment.wrong_scan_count || 0),
+      };
+    });
+}
+
+function getClassicAttempts(session, module) {
+  return (session.responses || []).map((response) => {
+    const topic = getQuestionTopic(module, response.questionId, session);
+
+    return {
+      sessionId: session.id,
+      sessionCode: session.code,
+      gameType: session.gameType,
+      studentId: response.studentId || '',
+      studentName: response.studentName || '-',
+      questionId: response.questionId,
+      topic,
+      correct: Boolean(response.correct),
+      status: response.responseStatus || (response.correct ? 'correct' : 'wrong'),
+      seconds: Number.isFinite(response.answeredSeconds) ? response.answeredSeconds : null,
+      score: response.scoreAwarded || 0,
+      wrongScans: Number(response.wrongScans || 0),
+    };
+  });
+}
+
+function makeEmptyStudentStats(student) {
+  return {
+    studentId: student.studentId,
+    studentCode: student.studentCode || '',
+    name: student.name || student.studentName || 'Student',
+    email: student.email || '',
+    sessionsJoined: 0,
+    topicCounts: new Map(),
+    answers: 0,
+    correct: 0,
+    score: 0,
+    wrongScans: 0,
+    times: [],
+    attempts: [],
+  };
+}
+
+function buildModuleAnalysis(module, sessions, studentRows, gameType = 'classic_mcq') {
+  const mode = getAnalyzeGameMode(gameType);
+  const moduleSessions = sessions.filter(
+    (session) => Number(session.moduleId) === Number(module.id) && (session.gameType || 'classic_mcq') === gameType,
+  );
+  const memberRows = (studentRows || []).filter((row) => row.accessType === 'member');
+  const studentsById = new Map();
+  const topicStatsByKey = new Map();
+  const attempts = [];
+
+  (module.chapters || []).forEach((chapter) => {
+    topicStatsByKey.set(getTopicKey(chapter.id), {
+      id: chapter.id,
+      code: chapter.chapterCode,
+      title: chapter.title,
+      sessions: new Set(),
+      students: new Set(),
+      answers: 0,
+      correct: 0,
+      scores: 0,
+      wrongScans: 0,
+      times: [],
+    });
+  });
+
+  memberRows.forEach((student) => {
+    if (student.studentId) {
+      studentsById.set(student.studentId, makeEmptyStudentStats(student));
+    }
+  });
+
+  moduleSessions.forEach((session) => {
+    (session.participants || []).forEach((participant) => {
+      if (!participant.studentId && !participant.id) {
+        return;
+      }
+
+      const studentId = participant.studentId || participant.id;
+      const existing = studentsById.get(studentId);
+
+      if (!existing) {
+        studentsById.set(studentId, makeEmptyStudentStats({
+          studentId,
+          name: participant.name,
+        }));
+      }
+
+      const studentStats = studentsById.get(studentId);
+      studentStats.sessionsJoined += 1;
+      studentStats.score += participant.score || 0;
+
+      (session.topics?.length ? session.topics : [{ id: session.topicId, title: getSessionTopicTitle(session) }])
+        .forEach((topic) => {
+          const topicKey = getTopicKey(topic.id);
+          studentStats.topicCounts.set(topicKey, (studentStats.topicCounts.get(topicKey) || 0) + 1);
+
+          if (!topicStatsByKey.has(topicKey)) {
+            topicStatsByKey.set(topicKey, {
+              id: topic.id,
+              code: topic.code || session.topicCode || '',
+              title: topic.title || getSessionTopicTitle(session),
+              sessions: new Set(),
+              students: new Set(),
+              answers: 0,
+              correct: 0,
+              scores: 0,
+              wrongScans: 0,
+              times: [],
+            });
+          }
+
+          const topicStats = topicStatsByKey.get(topicKey);
+          topicStats.sessions.add(session.id);
+          topicStats.students.add(studentId);
+        });
+    });
+
+    attempts.push(
+      ...(gameType === 'qr_pair_match'
+        ? getQrPairAttempts(session, module)
+        : getClassicAttempts(session, module)),
+    );
+  });
+
+  attempts.forEach((attempt) => {
+    if (!attempt.studentId) {
+      return;
+    }
+
+    if (!studentsById.has(attempt.studentId)) {
+      studentsById.set(attempt.studentId, makeEmptyStudentStats(attempt));
+    }
+
+    const studentStats = studentsById.get(attempt.studentId);
+    const topicKey = getTopicKey(attempt.topic.id);
+
+    studentStats.answers += 1;
+    studentStats.correct += attempt.correct ? 1 : 0;
+    studentStats.wrongScans += attempt.wrongScans || 0;
+    studentStats.attempts.push(attempt);
+
+    if (Number.isFinite(attempt.seconds)) {
+      studentStats.times.push(attempt.seconds);
+    }
+
+    if (!topicStatsByKey.has(topicKey)) {
+      topicStatsByKey.set(topicKey, {
+        id: attempt.topic.id,
+        code: attempt.topic.code || '',
+        title: attempt.topic.title || 'Unassigned',
+        sessions: new Set(),
+        students: new Set(),
+        answers: 0,
+        correct: 0,
+        scores: 0,
+        wrongScans: 0,
+        times: [],
+      });
+    }
+
+    const topicStats = topicStatsByKey.get(topicKey);
+    topicStats.answers += 1;
+    topicStats.correct += attempt.correct ? 1 : 0;
+    topicStats.scores += attempt.score || 0;
+    topicStats.wrongScans += attempt.wrongScans || 0;
+    topicStats.students.add(attempt.studentId);
+
+    if (Number.isFinite(attempt.seconds)) {
+      topicStats.times.push(attempt.seconds);
+    }
+  });
+
+  const studentStats = [...studentsById.values()]
+    .map((student) => {
+      const topTopic = [...student.topicCounts.entries()]
+        .sort((left, right) => right[1] - left[1])[0];
+      const topTopicStats = topTopic ? topicStatsByKey.get(topTopic[0]) : null;
+
+      return {
+        ...student,
+        accuracy: student.answers ? Math.round((student.correct / student.answers) * 100) : 0,
+        averageTime: getAverage(student.times),
+        topTopic: topTopicStats?.title || '-',
+      };
+    })
+    .sort((left, right) => right.score - left.score || right.accuracy - left.accuracy);
+
+  const topicStats = [...topicStatsByKey.values()]
+    .map((topic) => ({
+      ...topic,
+      sessionCount: topic.sessions.size,
+      studentCount: topic.students.size,
+      accuracy: topic.answers ? Math.round((topic.correct / topic.answers) * 100) : 0,
+      averageTime: getAverage(topic.times),
+    }))
+    .sort((left, right) => right.sessionCount - left.sessionCount || right.answers - left.answers);
+
+  const totalAnswers = attempts.length;
+  const totalCorrect = attempts.filter((attempt) => attempt.correct).length;
+  const averageTime = getAverage(attempts.map((attempt) => attempt.seconds));
+  const activeTopicStats = topicStats.filter((topic) => topic.answers > 0);
+  const weakestTopic = [...activeTopicStats].sort((left, right) => left.accuracy - right.accuracy)[0];
+  const strongestTopic = [...activeTopicStats].sort((left, right) => right.accuracy - left.accuracy)[0];
+
+  return {
+    moduleSessions,
+    gameType,
+    mode,
+    studentStats,
+    topicStats,
+    totalAnswers,
+    totalCorrect,
+    totalWrongScans: attempts.reduce((total, attempt) => total + (attempt.wrongScans || 0), 0),
+    averageTime,
+    averageScore: getAverage(studentStats.map((student) => student.score)),
+    accuracy: totalAnswers ? Math.round((totalCorrect / totalAnswers) * 100) : 0,
+    strongestTopic,
+    weakestTopic,
+  };
+}
+
+function AccuracyBar({ value }) {
+  const safeValue = Math.max(0, Math.min(Number(value) || 0, 100));
+
+  return (
+    <div className="analyze-accuracy-bar" aria-label={`Accuracy ${safeValue}%`}>
+      <span style={{ width: `${safeValue}%` }} />
+    </div>
+  );
+}
+
+function TeacherAnalyzeTab({ modules, sessions }) {
+  const [selectedModuleId, setSelectedModuleId] = useState('');
+  const [analyzeGameType, setAnalyzeGameType] = useState('classic_mcq');
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [topicBreakdownOpen, setTopicBreakdownOpen] = useState(false);
+  const [studentPerformanceOpen, setStudentPerformanceOpen] = useState(false);
+  const [studentRows, setStudentRows] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [error, setError] = useState('');
+  const selectedModule = modules.find((module) => String(module.id) === String(selectedModuleId));
+  const analysis = selectedModule
+    ? buildModuleAnalysis(selectedModule, sessions, studentRows, analyzeGameType)
+    : null;
+  const analyzeMode = getAnalyzeGameMode(analyzeGameType);
+  const selectedStudent = analysis?.studentStats.find(
+    (student) => String(student.studentId) === String(selectedStudentId),
+  );
+  const selectedModuleDescription = selectedModule?.description || 'No description yet.';
+
+  useEffect(() => {
+    if (!selectedModule?.id) {
+      setStudentRows([]);
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    async function loadStudents() {
+      setLoadingStudents(true);
+      setError('');
+
+      try {
+        const rows = await fetchModuleStudentAccess(selectedModule.id);
+
+        if (isMounted) {
+          setStudentRows(rows);
+        }
+      } catch (loadError) {
+        if (isMounted) {
+          setError(loadError.message);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingStudents(false);
+        }
+      }
+    }
+
+    loadStudents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedModule?.id]);
+
+  if (!selectedModule) {
+    return (
+      <section className="teacher-dashboard-panel-in analyze-page">
+        <div className="analyze-hero panel">
+          <div>
+            <p className="eyebrow">Learning Analytics</p>
+            <h1>Analyze Modules</h1>
+            <p>Choose a module to review participation, topic performance, and student learning progress.</p>
+          </div>
+          <span>{modules.length} modules</span>
+        </div>
+
+        <div className="analyze-module-grid">
+          {modules.map((module) => {
+            const moduleSessions = sessions.filter((session) => Number(session.moduleId) === Number(module.id));
+            const uniqueStudents = new Set(
+              moduleSessions.flatMap((session) => (session.participants || []).map((participant) => participant.studentId || participant.id)),
+            );
+            const attempts = moduleSessions.flatMap((session) => [
+              ...getClassicAttempts(session, module),
+              ...getQrPairAttempts(session, module),
+            ]);
+            const correct = attempts.filter((attempt) => attempt.correct).length;
+            const description = module.description || 'No description yet.';
+
+            return (
+              <article className="panel analyze-module-card" key={module.id}>
+                <div className="analyze-module-card-head">
+                  <p className="eyebrow">{module.moduleCode}</p>
+                  <h2>{module.title}</h2>
+                </div>
+                <div className="analyze-description-hover">
+                  <button className="description-toggle" type="button">
+                    Show Description
+                  </button>
+                  <div className="analyze-description-popover" role="tooltip">
+                    <p>{description}</p>
+                  </div>
+                </div>
+                <div className="analyze-mini-grid">
+                  <Stat label="Sessions" value={moduleSessions.length} />
+                  <Stat label="Students Played" value={uniqueStudents.size} />
+                  <Stat label="Topics" value={module.chapters?.length || 0} />
+                  <Stat label="Correct Avg" value={formatPercent(correct, attempts.length)} />
+                </div>
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => {
+                    setSelectedStudentId('');
+                    setSelectedModuleId(module.id);
+                  }}
+                >
+                  View Analysis
+                </button>
+              </article>
+            );
+          })}
+          {modules.length === 0 && <EmptyState text="Create a module first before viewing analysis." />}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="teacher-dashboard-panel-in analyze-page">
+      <div className="analyze-hero panel">
+        <div>
+          <p className="eyebrow">{selectedModule.moduleCode}</p>
+          <div className="analyze-selected-title-wrap">
+            <h1 tabIndex="0">{selectedModule.title}</h1>
+            <div className="analyze-selected-description-popover" role="tooltip">
+              <p>{selectedModuleDescription}</p>
+            </div>
+          </div>
+        </div>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={() => {
+            setSelectedModuleId('');
+            setSelectedStudentId('');
+          }}
+        >
+          Back To Modules
+        </button>
+      </div>
+
+      <Feedback text={error} />
+
+      <section className="panel analyze-mode-panel">
+        <div>
+          <p className="eyebrow">Choose Analysis Type</p>
+          <h2>{analyzeMode.label}</h2>
+          <p>{analyzeMode.description}</p>
+        </div>
+        <div className="analyze-mode-options" role="tablist" aria-label="Analysis game type">
+          {ANALYZE_GAME_MODES.map((mode) => (
+            <button
+              className={analyzeGameType === mode.value ? 'analyze-mode-card active' : 'analyze-mode-card'}
+              key={mode.value}
+              type="button"
+              onClick={() => {
+                setAnalyzeGameType(mode.value);
+                setSelectedStudentId('');
+                setTopicBreakdownOpen(false);
+                setStudentPerformanceOpen(false);
+              }}
+            >
+              <span>{mode.eyebrow}</span>
+              <strong>{mode.label}</strong>
+              <small>{mode.description}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="stats-grid analyze-summary-grid">
+        <Stat label="Sessions" value={analysis.moduleSessions.length} />
+        <Stat label="Students In Module" value={loadingStudents ? '...' : analysis.studentStats.length} />
+        <Stat label={analysis.mode.primaryMetric} value={`${analysis.accuracy}%`} />
+        <Stat label={analysis.mode.timeMetric} value={formatSeconds(analysis.averageTime)} />
+        {analysis.gameType === 'qr_pair_match' && (
+          <Stat label="Wrong Scans" value={analysis.totalWrongScans} />
+        )}
+      </div>
+
+      <section className="panel analyze-section">
+        <div className="analyze-section-heading">
+          <div>
+            <p className="eyebrow">{analysis.mode.eyebrow}</p>
+            <h2>{analysis.mode.label} Topic Breakdown</h2>
+          </div>
+          <div className="analyze-section-actions">
+            <div className="analyze-topic-highlight">
+              <span>Strongest: {analysis.strongestTopic?.title || '-'}</span>
+              <span>Weakest: {analysis.weakestTopic?.title || '-'}</span>
+            </div>
+            <button
+              className="secondary-button compact-button analyze-collapse-button"
+              type="button"
+              onClick={() => setTopicBreakdownOpen((isOpen) => !isOpen)}
+            >
+              {topicBreakdownOpen ? 'Hide Breakdown' : 'Show Breakdown'}
+            </button>
+          </div>
+        </div>
+        {topicBreakdownOpen && (
+          <div className="analyze-topic-list analyze-collapsible-content">
+            {analysis.topicStats.map((topic) => (
+              <article className="analyze-topic-row" key={getTopicKey(topic.id)}>
+                <div>
+                  <p className="eyebrow">{topic.code || 'Topic'}</p>
+                  <h3>{topic.title}</h3>
+                  <p>{topic.sessionCount} sessions · {topic.studentCount} students · {topic.answers} {analysis.mode.attemptLabel}</p>
+                </div>
+                <div className="analyze-topic-metrics">
+                  <strong>{topic.accuracy}%</strong>
+                  <AccuracyBar value={topic.accuracy} />
+                  <span>{analysis.mode.timeMetric}: {formatSeconds(topic.averageTime)}</span>
+                  {analysis.gameType === 'qr_pair_match' && <span>Wrong scans: {topic.wrongScans || 0}</span>}
+                </div>
+              </article>
+            ))}
+            {analysis.topicStats.length === 0 && <EmptyState text={analysis.mode.emptyText} />}
+          </div>
+        )}
+      </section>
+
+      <section className="panel analyze-section">
+        <div className="analyze-section-heading">
+          <div>
+            <p className="eyebrow">Student Performance</p>
+            <h2>Students In This Module</h2>
+          </div>
+          <div className="analyze-section-actions">
+            {selectedStudent && studentPerformanceOpen && (
+              <button className="secondary-button compact-button" type="button" onClick={() => setSelectedStudentId('')}>
+                Clear Student View
+              </button>
+            )}
+            <button
+              className="secondary-button compact-button analyze-collapse-button"
+              type="button"
+              onClick={() => setStudentPerformanceOpen((isOpen) => !isOpen)}
+            >
+              {studentPerformanceOpen ? 'Hide Students' : 'Show Students'}
+            </button>
+          </div>
+        </div>
+
+        {studentPerformanceOpen && (
+          <div className="analyze-collapsible-content">
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Sessions Joined</th>
+                    <th>Top Topic</th>
+                    <th>{analysis.mode.studentMetric}</th>
+                    <th>{analysis.mode.timeMetric}</th>
+                    <th>Score</th>
+                    {analysis.gameType === 'qr_pair_match' && <th>Wrong Scans</th>}
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analysis.studentStats.map((student) => (
+                    <tr key={student.studentId}>
+                      <td>
+                        <strong>{student.name}</strong>
+                        <br />
+                        <span className="muted">{student.studentCode || student.email || '-'}</span>
+                      </td>
+                      <td>{student.sessionsJoined}</td>
+                      <td>{student.topTopic}</td>
+                      <td>
+                        <div className="analyze-table-accuracy">
+                          <span>{student.accuracy}%</span>
+                          <AccuracyBar value={student.accuracy} />
+                        </div>
+                      </td>
+                      <td>{formatSeconds(student.averageTime)}</td>
+                      <td>{student.score}</td>
+                      {analysis.gameType === 'qr_pair_match' && <td>{student.wrongScans || 0}</td>}
+                      <td>
+                        <button
+                          className={selectedStudentId === student.studentId ? 'primary-button compact-button' : 'secondary-button compact-button'}
+                          type="button"
+                          onClick={() => setSelectedStudentId(student.studentId)}
+                        >
+                          View Student
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {analysis.studentStats.length === 0 && (
+                    <tr>
+                      <td colSpan={analysis.gameType === 'qr_pair_match' ? '8' : '7'}>
+                        No joined students or session participants found for this analysis yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {selectedStudent && (
+              <div className="analyze-student-detail">
+                <div>
+                  <p className="eyebrow">Student Detail</p>
+                  <h2>{selectedStudent.name}</h2>
+                  <p>
+                    {selectedStudent.correct}/{selectedStudent.answers} {analysis.mode.detailText} · {formatSeconds(selectedStudent.averageTime)} average time
+                  </p>
+                </div>
+                <div className="analyze-mini-grid">
+                  <Stat label="Sessions Joined" value={selectedStudent.sessionsJoined} />
+                  <Stat label={analysis.mode.studentMetric} value={`${selectedStudent.accuracy}%`} />
+                  <Stat label="Score In Module" value={selectedStudent.score} />
+                  <Stat label="Most Played Topic" value={selectedStudent.topTopic} />
+                </div>
+                <div className="analyze-attempt-list">
+                  {selectedStudent.attempts.slice(0, 12).map((attempt) => (
+                    <div className="analyze-attempt-row" key={`${attempt.sessionId}-${attempt.questionId}-${attempt.status}-${attempt.score}`}>
+                      <span>{attempt.sessionCode}</span>
+                      <span>{attempt.topic.title}</span>
+                      <strong className={attempt.correct ? 'success-text' : 'danger-text'}>{attempt.status}</strong>
+                      <span>{formatSeconds(attempt.seconds)}</span>
+                      <span>{attempt.score} pts</span>
+                    </div>
+                  ))}
+                  {selectedStudent.attempts.length === 0 && <p className="muted">No answer records for this student yet.</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    </section>
+  );
+}
+
 function SessionHistoryTab({ modules, onOpenResults, onReviewSession, sessions }) {
+  const [historyFilters, setHistoryFilters] = useState({
+    gameType: 'all',
+    moduleId: 'all',
+    dateRange: 'all',
+  });
+
+  const filteredSessions = sessions.filter((session) => {
+    const sessionGameType = session.gameType || 'classic_mcq';
+    const matchesGameType = historyFilters.gameType === 'all' || sessionGameType === historyFilters.gameType;
+    const matchesModule = historyFilters.moduleId === 'all' || String(session.moduleId) === String(historyFilters.moduleId);
+    const matchesDate = isSessionInHistoryDateRange(session, historyFilters.dateRange);
+
+    return matchesGameType && matchesModule && matchesDate;
+  });
+
+  const activeFilterCount = Object.values(historyFilters).filter((value) => value !== 'all').length;
+
+  function updateHistoryFilter(name, value) {
+    setHistoryFilters((currentFilters) => ({
+      ...currentFilters,
+      [name]: value,
+    }));
+  }
+
+  function resetHistoryFilters() {
+    setHistoryFilters({
+      gameType: 'all',
+      moduleId: 'all',
+      dateRange: 'all',
+    });
+  }
+
   return (
     <section className="teacher-dashboard-panel-in">
+      <section className="panel teacher-history-filter-panel">
+        <div>
+          <p className="eyebrow">History Filters</p>
+          <h2>Filter Sessions</h2>
+          <p className="muted">
+            Showing {filteredSessions.length} of {sessions.length} sessions
+          </p>
+        </div>
+        <div className="teacher-history-filter-grid">
+          <label>
+            Game Type
+            <select
+              value={historyFilters.gameType}
+              onChange={(event) => updateHistoryFilter('gameType', event.target.value)}
+            >
+              <option value="all">All game types</option>
+              <option value="classic_mcq">Classic MCQ</option>
+              <option value="qr_pair_match">QR Pair Match</option>
+            </select>
+          </label>
+          <label>
+            Module
+            <select
+              value={historyFilters.moduleId}
+              onChange={(event) => updateHistoryFilter('moduleId', event.target.value)}
+            >
+              <option value="all">All modules</option>
+              {modules.map((module) => (
+                <option key={module.id} value={module.id}>
+                  {module.moduleCode ? `${module.moduleCode} - ${module.title}` : module.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Date
+            <select
+              value={historyFilters.dateRange}
+              onChange={(event) => updateHistoryFilter('dateRange', event.target.value)}
+            >
+              <option value="all">All dates</option>
+              <option value="today">Today</option>
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+            </select>
+          </label>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={resetHistoryFilters}
+            disabled={activeFilterCount === 0}
+          >
+            Reset Filters
+          </button>
+        </div>
+      </section>
       <div className="teacher-history-list">
-        {sessions.map((session) => (
+        {filteredSessions.map((session) => (
           <section className="panel teacher-history-card" key={session.id}>
             <div className="history-card-header">
               <div>
@@ -2428,6 +3235,9 @@ function SessionHistoryTab({ modules, onOpenResults, onReviewSession, sessions }
           </section>
         ))}
         {sessions.length === 0 && <EmptyState text="No sessions created yet." />}
+        {sessions.length > 0 && filteredSessions.length === 0 && (
+          <EmptyState text="No sessions match the selected filters." />
+        )}
       </div>
     </section>
   );
@@ -2625,6 +3435,13 @@ export function TeacherDashboardPage({
             onClick={() => setActiveTab('history')}
           >
             History
+          </button>
+          <button
+            className={activeTab === 'analyze' ? 'teacher-tab active' : 'teacher-tab'}
+            type="button"
+            onClick={() => setActiveTab('analyze')}
+          >
+            Analyze
           </button>
           <button
             className={activeTab === 'leaderboard' ? 'teacher-tab active' : 'teacher-tab'}
@@ -2831,6 +3648,10 @@ export function TeacherDashboardPage({
             onReviewSession={onReviewSession}
             sessions={sessions}
           />
+        )}
+
+        {activeTab === 'analyze' && (
+          <TeacherAnalyzeTab modules={modules} sessions={sessions} />
         )}
 
         {activeTab === 'leaderboard' && (

@@ -24,6 +24,16 @@ export function StudentWaitingPage({
     () => currentSession?.gameType || 'classic_mcq',
     [currentSession?.gameType]
   );
+  const moduleName =
+    currentSession?.moduleTitle || currentSession?.moduleName || currentSession?.module?.title || 'Module not found';
+  const moduleCode = currentSession?.moduleCode || currentSession?.module?.moduleCode || '';
+  const topicName =
+    currentSession?.topicTitle ||
+    currentSession?.topicName ||
+    currentSession?.topic?.title ||
+    currentSession?.chapterTitle ||
+    'Unassigned';
+  const topicCode = currentSession?.topicCode || currentSession?.topic?.chapterCode || currentSession?.chapterCode || '';
 
   return (
     <AppFrame homeLabel="Leave Session" title="Waiting Room" onHome={() => setLeaveConfirmOpen(true)}>
@@ -33,7 +43,21 @@ export function StudentWaitingPage({
         <span className={currentSession?.gameType === 'qr_pair_match' ? 'waiting-game-badge qr-pair' : 'waiting-game-badge classic'}>
           {gameTypeLabel}
         </span>
-        <p>Waiting for teacher to start session {currentSession?.code}.</p>
+        <div className="waiting-session-details" aria-label="Session details">
+          <article className="waiting-session-detail-card">
+            <span>Module</span>
+            <strong>{moduleCode ? `${moduleCode} - ${moduleName}` : moduleName}</strong>
+          </article>
+          <article className="waiting-session-detail-card">
+            <span>Topic</span>
+            <strong>{topicCode ? `${topicCode} - ${topicName}` : topicName}</strong>
+          </article>
+          <article className="waiting-session-detail-card">
+            <span>Session</span>
+            <strong>{currentSession?.code || '-'}</strong>
+          </article>
+        </div>
+        <p>Waiting for teacher to start this session.</p>
         <div className="button-row waiting-room-actions">
           <button className="secondary-button" type="button" onClick={() => setRulesOpen(true)}>
             Show Rules

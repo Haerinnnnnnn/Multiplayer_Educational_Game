@@ -478,7 +478,7 @@ export default function App() {
 
   useEffect(() => {
     if (page === 'student-waiting' && ['live', 'paused'].includes(studentSession?.status)) {
-      setPage('student-game');
+      go('student-game', { replace: true });
     }
   }, [page, studentSession]);
 
@@ -488,7 +488,7 @@ export default function App() {
       currentUser?.role === 'teacher' &&
       ['live', 'paused'].includes(activeSession?.status)
     ) {
-      setPage('teacher-control');
+      go('teacher-control', { replace: true });
     }
   }, [activeSession?.status, currentUser?.role, page]);
 
@@ -509,9 +509,10 @@ export default function App() {
       ['student-waiting', 'student-game'].includes(page) &&
       studentSession?.status === 'ended'
     ) {
-      setPage('session-results');
+      setActiveSessionId(studentSession.id);
+      go('session-results', { replace: true });
     }
-  }, [currentUser?.role, page, studentSession?.status]);
+  }, [currentUser?.role, page, studentSession?.id, studentSession?.status]);
 
   useEffect(() => {
     if (
@@ -520,7 +521,7 @@ export default function App() {
       activeSession?.status === 'ended'
     ) {
       setTeacherResultBackTarget('home');
-      setPage('session-summary-loading');
+      go('session-summary-loading', { replace: true });
     }
   }, [activeSession?.status, currentUser?.role, page]);
 
@@ -1831,7 +1832,7 @@ export default function App() {
       setActiveSessionId(session.id);
       resetCreateSessionForm();
       setFeedback('');
-      setPage('live-lobby');
+      go('live-lobby');
     } catch (error) {
       setFeedback(error.message);
     }
@@ -1982,7 +1983,7 @@ export default function App() {
       }
 
       setFeedback('');
-      setPage('teacher-control');
+      go('teacher-control', { replace: true });
     } catch (error) {
       setFeedback(error.message);
     }
@@ -2045,6 +2046,8 @@ export default function App() {
       if (endedSession) {
         const refreshedSession = await fetchSessionDetails(activeSession.id, activeModule);
         setSessions((currentSessions) => upsertById(currentSessions, refreshedSession));
+        setActiveSessionId(refreshedSession.id);
+        go('session-results', { replace: true });
         return;
       }
 
@@ -2136,7 +2139,8 @@ export default function App() {
 
       if (updatedSession.status === 'ended') {
         setFeedback('');
-        setPage('session-results');
+        setActiveSessionId(updatedSession.id);
+        go('session-results', { replace: true });
         return;
       }
 
@@ -2158,7 +2162,7 @@ export default function App() {
       if (currentUser?.role === 'teacher') {
         setTeacherResultBackTarget('home');
       }
-      setPage(currentUser?.role === 'teacher' ? 'session-summary-loading' : 'session-results');
+      go(currentUser?.role === 'teacher' ? 'session-summary-loading' : 'session-results', { replace: true });
     } catch (error) {
       setFeedback(error.message);
     }
@@ -2447,7 +2451,7 @@ export default function App() {
     }
 
     setActiveSessionId(session.id);
-    setPage(session.status === 'lobby' ? 'live-lobby' : 'teacher-control');
+    go(session.status === 'lobby' ? 'live-lobby' : 'teacher-control');
   }
 
   function backToTeacherHistory() {

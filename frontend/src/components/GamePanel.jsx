@@ -389,6 +389,7 @@ function QrPairGamePanel({
           <h3>Explanation</h3>
           <p>{currentQuestion.explanation || 'No explanation provided for this question.'}</p>
         </div>
+        <StudentRoundRankCard participant={participant} session={session} />
         <button className="primary-button" disabled={isReady} type="button" onClick={onQrPairReady}>
           {isReady
             ? isFinalExplanation
@@ -437,6 +438,163 @@ function getClassicOptions(module, question) {
 function getStudentResponses(session, participant) {
   return (session.responses || []).filter(
     (response) => response.participantId === participant?.participantId,
+  );
+}
+
+function formatRankSeconds(seconds) {
+  if (seconds === null || seconds === undefined || Number.isNaN(Number(seconds))) {
+    return '-';
+  }
+
+  return `${Number(seconds).toFixed(Number(seconds) % 1 === 0 ? 0 : 1)}s`;
+}
+
+function getParticipantTimingAttempts(session, participant, latestAttempt = null) {
+  const participantId = participant?.participantId;
+
+  if (!participantId) {
+    return [];
+  }
+
+  const responseAttempts = (session.responses || [])
+    .filter((response) => response.participantId === participantId && response.answeredSeconds !== null)
+    .map((response) => Number(response.answeredSeconds))
+    .filter((seconds) => Number.isFinite(seconds));
+
+  const qrAttempts = (session.qrPair?.turns || [])
+    .flatMap((turn) => turn.assignments || [])
+    .filter(
+      (assignment) =>
+        assignment.assignmentType === 'pair' &&
+        assignment.questionHolderParticipantId === participantId &&
+        assignment.answeredSeconds !== null,
+    )
+    .map((assignment) => Number(assignment.answeredSeconds))
+    .filter((seconds) => Number.isFinite(seconds));
+
+  const attempts = [...responseAttempts, ...qrAttempts];
+  const latestAttemptAlreadyStored =
+    latestAttempt?.questionId &&
+    (session.responses || []).some(
+      (response) =>
+        response.participantId === participantId &&
+        Number(response.questionId) === Number(latestAttempt.questionId),
+    );
+
+  if (
+    latestAttempt &&
+    !latestAttemptAlreadyStored &&
+    latestAttempt.answeredSeconds !== null &&
+    latestAttempt.answeredSeconds !== undefined &&
+    Number.isFinite(Number(latestAttempt.answeredSeconds))
+  ) {
+    attempts.push(Number(latestAttempt.answeredSeconds));
+  }
+
+  return attempts;
+}
+
+function getStudentRoundRank(session, participant, latestAttempt = null) {
+  if (!session?.participants?.length || !participant?.participantId) {
+    return null;
+  }
+
+  const rows = (session.participants || []).map((item) => {
+    const timingAttempts = getParticipantTimingAttempts(
+      session,
+      item,
+      item.participantId === participant.participantId ? latestAttempt : null,
+    );
+    const latestAttemptAlreadyStored =
+      latestAttempt?.questionId &&
+      item.participantId === participant.participantId &&
+      (session.responses || []).some(
+        (response) =>
+          response.participantId === item.participantId &&
+          Number(response.questionId) === Number(latestAttempt.questionId),
+      );
+    const projectedScore =
+      (item.score || 0) +
+      (item.participantId === participant.participantId && latestAttempt && !latestAttemptAlreadyStored
+        ? latestAttempt.scoreAwarded || 0
+        : 0);
+    const averageSeconds = timingAttempts.length
+      ? timingAttempts.reduce((total, seconds) => total + seconds, 0) / timingAttempts.length
+      : null;
+
+    return {
+      averageSeconds,
+      participant: item,
+      score: projectedScore,
+    };
+  });
+
+  rows.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
+
+    if (left.averageSeconds !== null && right.averageSeconds !== null) {
+      return left.averageSeconds - right.averageSeconds;
+    }
+
+    if (left.averageSeconds !== null) {
+      return -1;
+    }
+
+    if (right.averageSeconds !== null) {
+      return 1;
+    }
+
+    return String(left.participant.name || '').localeCompare(String(right.participant.name || ''));
+  });
+
+  const currentIndex = rows.findIndex((row) => row.participant.participantId === participant.participantId);
+
+  if (currentIndex === -1) {
+    return null;
+  }
+
+  const currentRow = rows[currentIndex];
+  const leader = rows[0];
+
+  return {
+    averageSeconds: currentRow.averageSeconds,
+    leaderName: leader?.participant?.name || '',
+    pointsBehindLeader: Math.max((leader?.score || 0) - currentRow.score, 0),
+    rank: currentIndex + 1,
+    score: currentRow.score,
+    totalPlayers: rows.length,
+  };
+}
+
+function StudentRoundRankCard({ latestAttempt = null, participant, session }) {
+  const rankInfo = getStudentRoundRank(session, participant, latestAttempt);
+
+  if (!rankInfo) {
+    return null;
+  }
+
+  const isLeader = rankInfo.rank === 1;
+
+  return (
+    <section className="student-round-rank-card" aria-label="Current session rank">
+      <div>
+        <p className="eyebrow">Current Rank</p>
+        <h3>
+          #{rankInfo.rank} <span>/ {rankInfo.totalPlayers}</span>
+        </h3>
+      </div>
+      <div className="student-round-rank-details">
+        <strong>{rankInfo.score} pts</strong>
+        <span>Avg time: {formatRankSeconds(rankInfo.averageSeconds)}</span>
+      </div>
+      <p>
+        {isLeader
+          ? 'You are currently leading this session.'
+          : `${rankInfo.pointsBehindLeader} pts behind ${rankInfo.leaderName || 'the leader'}.`}
+      </p>
+    </section>
   );
 }
 
@@ -782,16 +940,33 @@ function ClassicMcqGamePanel({
 
   if (phase === 'explanation' && lastResult) {
     const isLastQuestion = getNextUnansweredQuestionIndex(lastResult.question.id) === -1;
+    const explanationStatusClass = lastResult.responseStatus === 'timeout'
+      ? 'timeout'
+      : lastResult.correct
+        ? 'correct'
+        : 'wrong';
 
     return (
       <>
-        <section className="panel game-panel classic-mcq-panel">
-          <p className="eyebrow">Explanation</p>
-          <h2>{lastResult.responseStatus === 'timeout' ? 'Time Is Up' : lastResult.correct ? 'Correct' : 'Wrong'}</h2>
-          <p>
-            Correct Answer: <strong>{getCorrectAnswerText(lastResult.question)}</strong>
-          </p>
-          <p className="score-text">Score Earned: {lastResult.scoreAwarded} pts</p>
+        <section className="panel game-panel classic-mcq-panel classic-explanation-panel">
+          <div className="classic-explanation-main">
+            <p className="eyebrow">Explanation</p>
+            <h2 className={`classic-explanation-result ${explanationStatusClass}`}>
+              {lastResult.responseStatus === 'timeout' ? 'Time Is Up' : lastResult.correct ? 'Correct' : 'Wrong'}
+            </h2>
+            <p className={`classic-explanation-answer ${explanationStatusClass}`}>
+              Correct Answer: <strong>{getCorrectAnswerText(lastResult.question)}</strong>
+            </p>
+          </div>
+          <StudentRoundRankCard
+            latestAttempt={{
+              answeredSeconds: lastResult.answeredSeconds,
+              questionId: lastResult.question.id,
+              scoreAwarded: lastResult.scoreAwarded,
+            }}
+            participant={participant}
+            session={session}
+          />
           <div className="explanation-box">
             <h3>Explanation</h3>
             <p>{lastResult.question.explanation || 'No explanation provided for this question.'}</p>
@@ -856,15 +1031,6 @@ function ClassicMcqGamePanel({
           );
         })}
       </div>
-      {isFeedback && (
-        <p className="classic-feedback-note">
-          {lastResult.responseStatus === 'timeout'
-            ? `Time is up. Correct answer: ${correctAnswerText}`
-            : lastResult.correct
-              ? 'Correct answer selected.'
-              : `Correct answer: ${correctAnswerText}`}
-        </p>
-      )}
       <Feedback text={feedback} />
     </section>
     {isPaused && <SessionPausedOverlay />}
