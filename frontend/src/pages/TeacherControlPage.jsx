@@ -2,6 +2,7 @@ import React from 'react';
 import { ClassicLiveLeaderboard } from '../components/ClassicLiveLeaderboard.jsx';
 import { ParticipantList, SessionGuard } from '../components/Common.jsx';
 import { AppFrame } from '../components/Layout.jsx';
+import { leaderboardRanker } from '../domain/leaderboard/LeaderboardRanker.js';
 
 function getParticipantName(session, participantId) {
   return session.participants.find((participant) => participant.participantId === participantId)?.name || '-';
@@ -11,7 +12,7 @@ function QrPairTeacherControl({ activeModule, activeSession }) {
   const currentTurn = activeSession.qrPair?.currentTurn;
   const pairAssignments = currentTurn?.assignments.filter((assignment) => assignment.assignmentType === 'pair') || [];
   const decoyAssignments = currentTurn?.assignments.filter((assignment) => assignment.assignmentType === 'decoy') || [];
-  const leaderboard = [...(activeSession.participants || [])].sort((left, right) => right.score - left.score);
+  const leaderboard = leaderboardRanker.rankByScore(activeSession.participants || []);
   const completedPairs = pairAssignments.filter((assignment) => assignment.status !== 'pending').length;
   const readyStudents = pairAssignments.reduce((total, assignment) => {
     return total + (assignment.questionHolderReady ? 1 : 0) + (assignment.answerHolderReady ? 1 : 0);
@@ -97,7 +98,7 @@ function getClassicProgress(activeSession, participant) {
 
 function ClassicMcqTeacherControl({ activeSession }) {
   const totalQuestions = activeSession.questionIds?.length || activeSession.questionCount || 0;
-  const leaderboard = [...(activeSession.participants || [])].sort((left, right) => right.score - left.score);
+  const leaderboard = leaderboardRanker.rankByScore(activeSession.participants || []);
   const completedStudents = leaderboard.filter(
     (participant) => getClassicProgress(activeSession, participant) >= totalQuestions,
   ).length;

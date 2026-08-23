@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { BrandLogo } from '../components/BrandLogo.jsx';
 import { Feedback } from '../components/Common.jsx';
 import { CenteredScreen } from '../components/Layout.jsx';
+import { getLatestBirthdayForAge, validateMinimumAge } from '../utils/ageValidation.js';
 
 export function TeacherRegisterPage({ feedback, onBack, onRegister }) {
+  const [ageError, setAgeError] = useState('');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -12,12 +14,22 @@ export function TeacherRegisterPage({ feedback, onBack, onRegister }) {
     schoolName: '',
   });
 
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const validationError = validateMinimumAge(form.birthday, 18, 'Teacher');
+    setAgeError(validationError);
+
+    if (!validationError) {
+      onRegister(event, form);
+    }
+  };
+
   return (
     <CenteredScreen withBackground>
       <section className="login-panel wide-auth-panel">
         <BrandLogo className="auth-brand-logo" subtitle="Teacher Account" />
         <h1>Teacher Register</h1>
-        <form className="form-grid" onSubmit={(event) => onRegister(event, form)}>
+        <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Name
             <input
@@ -48,8 +60,12 @@ export function TeacherRegisterPage({ feedback, onBack, onRegister }) {
             Birthday
             <input
               type="date"
+              max={getLatestBirthdayForAge(18)}
               value={form.birthday}
-              onChange={(event) => setForm({ ...form, birthday: event.target.value })}
+              onChange={(event) => {
+                setAgeError('');
+                setForm({ ...form, birthday: event.target.value });
+              }}
             />
           </label>
           <label>
@@ -64,7 +80,7 @@ export function TeacherRegisterPage({ feedback, onBack, onRegister }) {
             Create Teacher Account
           </button>
         </form>
-        <Feedback text={feedback} />
+        <Feedback text={ageError || feedback} />
         <button className="link-button auth-back-link" type="button" onClick={onBack}>
           Back to Login
         </button>

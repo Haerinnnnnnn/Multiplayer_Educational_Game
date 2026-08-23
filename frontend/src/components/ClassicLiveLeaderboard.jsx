@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
+import { leaderboardRanker } from '../domain/leaderboard/LeaderboardRanker.js';
 
 function getParticipantKey(participant) {
   return participant.participantId || participant.id;
@@ -69,14 +70,8 @@ export function ClassicLiveLeaderboard({ hideHeader = false, session, title = 'L
   const rows = useMemo(() => {
     const previousRanks = previousRanksRef.current;
 
-    return [...(session?.participants || [])]
-      .sort((left, right) => {
-        if ((right.score || 0) !== (left.score || 0)) {
-          return (right.score || 0) - (left.score || 0);
-        }
-
-        return String(left.name || '').localeCompare(String(right.name || ''));
-      })
+    return leaderboardRanker
+      .rankByScoreAndName(session?.participants || [])
       .map((participant, index) => {
         const participantKey = getParticipantKey(participant);
         const previousRank = previousRanks.get(participantKey);

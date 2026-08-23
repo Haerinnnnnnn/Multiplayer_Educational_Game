@@ -3,6 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { ClassicLiveLeaderboard } from './ClassicLiveLeaderboard.jsx';
 import { EmptyState, Feedback } from './Common.jsx';
 import { getAnswerOptions } from '../utils/sessionHelpers.js';
+import { leaderboardRanker } from '../domain/leaderboard/LeaderboardRanker.js';
 
 function getQrPairAssignment(session, student) {
   const participant = session.participants.find((item) => item.id === student.id);
@@ -529,34 +530,21 @@ function getStudentRoundRank(session, participant, latestAttempt = null) {
     };
   });
 
-  rows.sort((left, right) => {
-    if (right.score !== left.score) {
-      return right.score - left.score;
-    }
-
-    if (left.averageSeconds !== null && right.averageSeconds !== null) {
-      return left.averageSeconds - right.averageSeconds;
-    }
-
-    if (left.averageSeconds !== null) {
-      return -1;
-    }
-
-    if (right.averageSeconds !== null) {
-      return 1;
-    }
-
-    return String(left.participant.name || '').localeCompare(String(right.participant.name || ''));
+  const rankedRows = leaderboardRanker.rankByScoreTimeAndName(rows, {
+    nameSelector: (row) => row.participant.name,
+    timeSelector: (row) => row.averageSeconds,
   });
 
-  const currentIndex = rows.findIndex((row) => row.participant.participantId === participant.participantId);
+  const currentIndex = rankedRows.findIndex(
+    (row) => row.participant.participantId === participant.participantId,
+  );
 
   if (currentIndex === -1) {
     return null;
   }
 
-  const currentRow = rows[currentIndex];
-  const leader = rows[0];
+  const currentRow = rankedRows[currentIndex];
+  const leader = rankedRows[0];
 
   return {
     averageSeconds: currentRow.averageSeconds,
@@ -564,7 +552,7 @@ function getStudentRoundRank(session, participant, latestAttempt = null) {
     pointsBehindLeader: Math.max((leader?.score || 0) - currentRow.score, 0),
     rank: currentIndex + 1,
     score: currentRow.score,
-    totalPlayers: rows.length,
+    totalPlayers: rankedRows.length,
   };
 }
 
@@ -693,7 +681,7 @@ function ClassicMcqGamePanel({
   student,
 }) {
   const participant = session.participants.find((item) => item.id === student.id);
-  const leaderboard = [...(session.participants || [])].sort((left, right) => right.score - left.score);
+  const leaderboard = leaderboardRanker.rankByScore(session.participants || []);
   const totalQuestions = session.questionIds?.length || 0;
   const answeredCount = getStudentResponses(session, participant).length;
   const initialQuestionIndex = Math.max(getNextClassicQuestionIndex(session, participant), 0);

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { EmptyState, Stat } from '../components/Common.jsx';
 import { AppFrame } from '../components/Layout.jsx';
+import { leaderboardRanker } from '../domain/leaderboard/LeaderboardRanker.js';
 
 function getSessionQuestions(module, session) {
   return (session?.questionIds || [])
@@ -298,7 +299,7 @@ export function TeacherSessionReviewPage({ module, onBack, session }) {
     );
   }
 
-  const leaderboard = [...(session.participants || [])].sort((left, right) => right.score - left.score);
+  const leaderboard = leaderboardRanker.rankByScore(session.participants || []);
   const selectedParticipant = leaderboard.find((participant) => participant.participantId === openParticipantId);
   const selectedAttempts = selectedParticipant
     ? getStudentQuestionAttempts(session, selectedParticipant.participantId)

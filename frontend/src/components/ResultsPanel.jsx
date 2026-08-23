@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { EmptyState, Feedback, Stat } from './Common.jsx';
+import { leaderboardRanker } from '../domain/leaderboard/LeaderboardRanker.js';
 
 function getRankLabel(rank) {
   if (rank === 1) return '1st';
@@ -93,7 +94,7 @@ export function ResultsPanel({
     return <EmptyState text="No result selected." />;
   }
 
-  const leaderboard = [...(session.participants || [])].sort((a, b) => b.score - a.score);
+  const leaderboard = leaderboardRanker.rankByScore(session.participants || []);
   const topThree = leaderboard.slice(0, 3);
   const otherPlayers = leaderboard.slice(3);
   const podiumOrder = [topThree[1], topThree[0], topThree[2]];
