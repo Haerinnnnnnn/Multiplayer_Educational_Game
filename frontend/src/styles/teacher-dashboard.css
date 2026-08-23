@@ -1,0 +1,223 @@
+.teacher-hero-panel {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 34px;
+}
+
+.teacher-hero-panel h1 {
+  max-width: 680px;
+  margin: 0 0 12px;
+  font-size: 42px;
+  line-height: 1.12;
+}
+
+.teacher-hero-panel p {
+  margin: 0;
+  color: #4b5563;
+}
+
+.teacher-profile-panel {
+  padding: 24px;
+}
+
+.teacher-profile-panel h2 {
+  margin: 0 0 18px;
+}
+
+.active-session-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.active-session-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.active-session-heading h2 {
+  margin: 0 0 8px;
+}
+
+.active-session-list {
+  display: grid;
+  gap: 12px;
+}
+
+.active-session-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  padding: 16px;
+  background: #eff6ff;
+}
+
+.active-session-card h3 {
+  margin: 0 0 6px;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+}
+
+.active-session-card p {
+  margin: 0;
+}
+
+.teacher-approval-banner {
+  position: relative;
+  z-index: 2;
+  width: min(1320px, calc(100% - 48px));
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 20px;
+  margin: 30px auto 0;
+  padding: 24px 28px;
+  border: 1px solid rgba(250, 204, 21, 0.42);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 90% 0%, rgba(250, 204, 21, 0.13), transparent 34%),
+    rgba(30, 27, 75, 0.91);
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.3);
+  color: #f8fafc;
+  backdrop-filter: blur(18px);
+}
+
+.teacher-approval-banner.rejected {
+  border-color: rgba(248, 113, 113, 0.48);
+  background:
+    radial-gradient(circle at 90% 0%, rgba(239, 68, 68, 0.18), transparent 34%),
+    rgba(49, 20, 42, 0.92);
+}
+
+.teacher-approval-banner-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(253, 224, 71, 0.5);
+  border-radius: 16px;
+  background: rgba(250, 204, 21, 0.12);
+  color: #fde047;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.teacher-approval-banner.rejected .teacher-approval-banner-icon {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+}
+
+.teacher-approval-banner h1 {
+  margin: 3px 0 8px;
+  font-size: clamp(25px, 3vw, 34px);
+}
+
+.teacher-approval-banner p,
+.teacher-approval-banner small {
+  color: #dbeafe;
+}
+
+.teacher-approval-banner p {
+  max-width: 920px;
+  margin: 0 0 8px;
+  line-height: 1.55;
+}
+
+.teacher-approval-banner small {
+  font-weight: 700;
+}
+
+.teacher-approval-resend-form {
+  display: grid;
+  gap: 12px;
+  max-width: 880px;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(96, 165, 250, 0.34);
+  border-radius: 18px;
+  background: rgba(7, 12, 32, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.teacher-approval-resend-form label {
+  color: #bfdbfe;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.teacher-approval-resend-form textarea {
+  min-height: 106px;
+  resize: vertical;
+  border: 1px solid rgba(147, 197, 253, 0.34);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: rgba(3, 7, 18, 0.72);
+  color: #f8fafc;
+  font: inherit;
+  line-height: 1.5;
+  outline: none;
+}
+
+.teacher-approval-resend-form textarea:focus {
+  border-color: rgba(45, 212, 191, 0.76);
+  box-shadow: 0 0 0 4px rgba(45, 212, 191, 0.12);
+}
+
+.teacher-approval-resend-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.teacher-approval-resend-actions button {
+  border: 1px solid rgba(147, 197, 253, 0.42);
+  border-radius: 999px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  color: #ffffff;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.24);
+}
+
+.teacher-approval-resend-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.teacher-approval-resend-actions span,
+.teacher-approval-resend-feedback {
+  color: #bfdbfe;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.teacher-approval-resend-feedback {
+  margin: 0;
+}
+
+.teacher-approval-locked-content {
+  opacity: 0.34;
+  filter: grayscale(0.35) saturate(0.55);
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (max-width: 720px) {
+  .teacher-approval-banner {
+    width: min(100% - 24px, 1320px);
+    grid-template-columns: 1fr;
+    margin-top: 18px;
+    padding: 20px;
+  }
+}

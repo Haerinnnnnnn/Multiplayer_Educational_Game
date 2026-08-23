@@ -1,0 +1,485 @@
+@media (max-width: 800px) {
+  .start-landing {
+    padding: 28px 18px;
+  }
+
+  .start-hero {
+    min-height: calc(100vh - 56px);
+    padding: 94px 0 58px;
+  }
+
+  .start-hero h1 {
+    font-size: 44px;
+    line-height: 1.04;
+  }
+
+  .start-lead {
+    font-size: 17px;
+  }
+
+  .start-brand-logo {
+    margin-bottom: 22px;
+  }
+
+  .start-corner-brand {
+    top: 18px;
+    left: 18px;
+    max-width: calc(100% - 36px);
+    margin: 0;
+  }
+
+  .start-brand-logo img {
+    width: 50px;
+    height: 50px;
+  }
+
+  .start-corner-brand img {
+    width: 44px;
+    height: 44px;
+  }
+
+  .start-corner-brand strong {
+    font-size: 18px;
+  }
+
+  .start-corner-brand span {
+    font-size: 10px;
+  }
+
+  .start-mode-row {
+    margin: 22px 0;
+  }
+
+  .start-showcase {
+    margin-top: 44px;
+    padding-top: 18px;
+  }
+
+  .start-game-preview {
+    min-height: auto;
+    padding: 16px;
+  }
+
+  .preview-question {
+    padding: 18px;
+  }
+
+  .preview-question p {
+    font-size: 20px;
+  }
+
+  .preview-bottom {
+    flex-direction: column;
+  }
+
+  .preview-qr {
+    max-width: none;
+  }
+
+  .start-explain-strip {
+    grid-template-columns: 1fr;
+    margin-top: 24px;
+  }
+
+  .start-section-heading h2,
+  .start-analytics-preview h2 {
+    font-size: 28px;
+  }
+
+  .start-mode-detail-grid,
+  .start-role-grid,
+  .start-analytics-preview,
+  .analytics-preview-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .start-mode-detail-card,
+  .start-role-grid article,
+  .start-analytics-preview {
+    min-height: auto;
+  }
+
+  .start-analytics-preview {
+    padding: 22px;
+    margin-bottom: 44px;
+  }
+
+  .start-analytics-preview .start-section-kicker {
+    margin-left: auto;
+  }
+
+  .app-frame {
+    padding: 18px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stats-grid,
+  .action-grid,
+  .list-grid,
+  .split-grid,
+  .mcq-option-grid,
+  .session-mode-grid,
+  .answer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .session-code {
+    font-size: 38px;
+  }
+
+  .session-code-row {
+    align-items: flex-start;
+  }
+
+  .lobby-qr-action-row {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .lobby-action-stack {
+    width: min(100%, 260px);
+  }
+
+  .answer-time-bar-row {
+    grid-template-columns: 58px minmax(110px, 1fr) 62px;
+    gap: 8px;
+  }
+
+  .answer-time-graph {
+    padding: 14px;
+  }
+
+  .classic-review-analytics {
+    grid-template-columns: 1fr;
+  }
+
+  .session-analytics-title-row,
+  .session-analytics-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .classic-correct-donut-card {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .classic-review-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .result-exp-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-history-filter-panel,
+  .teacher-history-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-history-filter-grid .secondary-button {
+    width: 100%;
+  }
+
+  .history-card-header {
+    flex-direction: column;
+  }
+
+  .history-card-actions {
+    justify-content: stretch;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .history-card-actions .primary-button,
+  .history-card-actions .secondary-button {
+    flex: 1 1 180px;
+  }
+
+  .student-dashboard-nav {
+    grid-template-columns: 1fr auto;
+    padding: 0 16px;
+  }
+
+  .teacher-dashboard-nav {
+    grid-template-columns: 1fr auto;
+    padding: 0 16px;
+  }
+
+  .admin-dashboard-nav {
+    grid-template-columns: 1fr auto;
+    padding: 0 16px;
+  }
+
+  .dashboard-brand-home {
+    display: none;
+  }
+
+  .student-brand {
+    display: none;
+  }
+
+  .teacher-brand {
+    display: none;
+  }
+
+  .admin-brand {
+    display: none;
+  }
+
+  .student-tabs {
+    justify-self: start;
+    width: min(100vw - 88px, 368px);
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .teacher-tabs {
+    width: min(100vw - 88px, 360px);
+    display: flex;
+    justify-self: start;
+    overflow-x: auto;
+  }
+
+  .admin-tabs {
+    width: min(100vw - 88px, 360px);
+    display: flex;
+    justify-self: start;
+    overflow-x: auto;
+  }
+
+  .student-tab,
+  .student-tabs {
+    min-height: 64px;
+  }
+
+  .teacher-tab,
+  .teacher-tabs {
+    min-height: 64px;
+  }
+
+  .admin-tab,
+  .admin-tabs {
+    min-height: 64px;
+  }
+
+  .teacher-tab {
+    flex: 0 0 96px;
+  }
+
+  .student-tab {
+    flex: 0 0 104px;
+  }
+
+  .admin-tab {
+    flex: 0 0 96px;
+  }
+
+  .student-tab-indicator {
+    display: none;
+  }
+
+  .teacher-tab-indicator {
+    display: none;
+  }
+
+  .admin-tab-indicator {
+    display: none;
+  }
+
+  .student-dashboard-content {
+    padding: 18px;
+  }
+
+  .teacher-dashboard-content {
+    padding: 18px;
+  }
+
+  .admin-dashboard-content {
+    padding: 18px;
+  }
+
+  .student-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-leaderboard-hero {
+    display: grid;
+    padding: 24px;
+  }
+
+  .student-exp-leaderboard-list li {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .student-exp-leaderboard-list b {
+    grid-column: 2;
+  }
+
+  .student-settings-grid,
+  .teacher-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-hero-panel {
+    min-height: 250px;
+    padding: 24px;
+  }
+
+  .student-hero-panel h1 {
+    font-size: 32px;
+  }
+
+  .teacher-hero-panel {
+    align-items: flex-start;
+    flex-direction: column;
+    min-height: 250px;
+    padding: 24px;
+  }
+
+  .admin-hero-panel {
+    align-items: flex-start;
+    flex-direction: column;
+    min-height: 250px;
+    padding: 24px;
+  }
+
+  .admin-hero-panel h1 {
+    font-size: 32px;
+  }
+
+  .admin-live-card {
+    width: 100%;
+  }
+
+  .admin-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-home-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-summary-metrics {
+    justify-content: flex-start;
+  }
+
+  .admin-settings-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 24px;
+  }
+
+  .admin-settings-role-pill {
+    margin-left: 0;
+  }
+
+  .admin-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-user-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-user-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-user-filter-grid .secondary-button {
+    width: 100%;
+  }
+
+  .import-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-user-role-toggle {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-hero-panel h1 {
+    font-size: 32px;
+  }
+
+  .activity-card-main,
+  .answer-history-row,
+  .active-session-card,
+  .student-module-card-header,
+  .module-students-header,
+  .module-section-heading,
+  .invite-browser-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .invite-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .podium-panel {
+    min-height: 460px;
+    padding: 18px;
+  }
+
+  .podium-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .podium-header h2 {
+    font-size: 30px;
+  }
+
+  .podium-stage {
+    grid-template-columns: repeat(3, minmax(88px, 1fr));
+    min-height: 290px;
+    margin-top: 20px;
+  }
+
+  .podium-name-tag {
+    padding: 7px 9px;
+    font-size: 13px;
+  }
+
+  .podium-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+
+  .podium-medal {
+    width: 54px;
+    height: 54px;
+    font-size: 30px;
+  }
+
+  .rank-1 .podium-block {
+    min-height: 190px;
+  }
+
+  .rank-2 .podium-block {
+    min-height: 145px;
+  }
+
+  .rank-3 .podium-block {
+    min-height: 125px;
+  }
+
+  .results-leaderboard-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .results-leaderboard-row > strong {
+    grid-column: 2;
+  }
+}

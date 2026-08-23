@@ -1,0 +1,525 @@
+.teacher-dashboard-shell .analyze-page {
+  display: grid;
+  gap: 22px;
+}
+
+.teacher-dashboard-shell .analyze-hero {
+  position: relative;
+  z-index: 25;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 180px;
+  padding: 36px;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(37, 27, 82, 0.82)),
+    rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(147, 197, 253, 0.22);
+  box-shadow: 0 22px 60px rgba(2, 6, 23, 0.28);
+}
+
+.teacher-dashboard-shell .analyze-hero h1 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: clamp(34px, 5vw, 60px);
+  line-height: 0.98;
+}
+
+.teacher-dashboard-shell .analyze-hero p {
+  max-width: 760px;
+  color: #cbd5e1;
+  font-size: 17px;
+}
+
+.teacher-dashboard-shell .analyze-hero > span {
+  flex: 0 0 auto;
+  padding: 14px 22px;
+  border-radius: 999px;
+  color: #e0e7ff;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.86), rgba(37, 99, 235, 0.86));
+  font-size: 18px;
+  font-weight: 900;
+  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.22);
+}
+
+.teacher-dashboard-shell .analyze-selected-title-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 980px;
+}
+
+.teacher-dashboard-shell .analyze-selected-title-wrap h1 {
+  cursor: help;
+}
+
+.teacher-dashboard-shell .analyze-selected-title-wrap h1:focus-visible {
+  outline: 2px solid rgba(45, 212, 191, 0.78);
+  outline-offset: 8px;
+  border-radius: 12px;
+}
+
+.teacher-dashboard-shell .analyze-selected-description-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 14px);
+  z-index: 120;
+  width: min(640px, calc(100vw - 80px));
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(45, 212, 191, 0.36);
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(37, 27, 82, 0.96)),
+    rgba(15, 23, 42, 0.98);
+  box-shadow:
+    0 24px 60px rgba(2, 6, 23, 0.5),
+    0 0 28px rgba(45, 212, 191, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px) scale(0.98);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.teacher-dashboard-shell .analyze-selected-description-popover::before {
+  content: '';
+  position: absolute;
+  left: 34px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border-left: 1px solid rgba(45, 212, 191, 0.36);
+  border-top: 1px solid rgba(45, 212, 191, 0.36);
+  background: rgba(15, 23, 42, 0.98);
+  transform: rotate(45deg);
+}
+
+.teacher-dashboard-shell .analyze-selected-description-popover p {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  max-width: none;
+  color: #e0f2fe;
+  font-size: 15px;
+  line-height: 1.58;
+}
+
+.teacher-dashboard-shell .analyze-selected-title-wrap:hover .analyze-selected-description-popover,
+.teacher-dashboard-shell .analyze-selected-title-wrap:focus-within .analyze-selected-description-popover {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.teacher-dashboard-shell .analyze-module-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.teacher-dashboard-shell .analyze-module-card {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 16px;
+  min-height: 390px;
+  padding: 28px;
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(31, 25, 76, 0.76)),
+    rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(147, 197, 253, 0.2);
+  box-shadow: 0 18px 52px rgba(2, 6, 23, 0.24);
+  animation: panel-rise 0.28s ease both;
+}
+
+.teacher-dashboard-shell .analyze-module-card-head {
+  display: grid;
+  gap: 14px;
+  min-height: 108px;
+  align-content: start;
+}
+
+.teacher-dashboard-shell .analyze-module-card h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: clamp(26px, 2.3vw, 36px);
+  line-height: 1.1;
+}
+
+.teacher-dashboard-shell .analyze-module-card p {
+  color: #cbd5e1;
+}
+
+.teacher-dashboard-shell .analyze-description-hover {
+  position: relative;
+  z-index: 5;
+  justify-self: start;
+}
+
+.teacher-dashboard-shell .description-toggle {
+  justify-self: start;
+  padding: 9px 16px;
+  border: 1px solid rgba(147, 197, 253, 0.24);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.16);
+  color: #93c5fd;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.teacher-dashboard-shell .description-toggle:hover,
+.teacher-dashboard-shell .description-toggle:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(45, 212, 191, 0.48);
+  background: rgba(45, 212, 191, 0.14);
+  color: #ccfbf1;
+  outline: none;
+}
+
+.teacher-dashboard-shell .analyze-description-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 12px);
+  width: min(420px, calc(100vw - 64px));
+  padding: 18px;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(37, 27, 82, 0.96)),
+    rgba(15, 23, 42, 0.98);
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.48), 0 0 28px rgba(45, 212, 191, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px) scale(0.98);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.teacher-dashboard-shell .analyze-description-popover::before {
+  content: '';
+  position: absolute;
+  left: 30px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border-left: 1px solid rgba(45, 212, 191, 0.35);
+  border-top: 1px solid rgba(45, 212, 191, 0.35);
+  background: rgba(15, 23, 42, 0.98);
+  transform: rotate(45deg);
+}
+
+.teacher-dashboard-shell .analyze-description-popover p {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: #e0f2fe;
+  line-height: 1.58;
+}
+
+.teacher-dashboard-shell .analyze-description-hover:hover .analyze-description-popover,
+.teacher-dashboard-shell .analyze-description-hover:focus-within .analyze-description-popover {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.teacher-dashboard-shell .analyze-module-card > .primary-button {
+  align-self: end;
+  justify-self: start;
+}
+
+.teacher-dashboard-shell .analyze-mode-panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.65fr) minmax(0, 1.35fr);
+  gap: 20px;
+  align-items: stretch;
+  padding: 26px;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(35, 28, 84, 0.82)),
+    rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(147, 197, 253, 0.2);
+  animation: panel-rise 0.28s ease both;
+}
+
+.teacher-dashboard-shell .analyze-mode-panel h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 30px;
+}
+
+.teacher-dashboard-shell .analyze-mode-panel p {
+  color: #cbd5e1;
+  line-height: 1.55;
+}
+
+.teacher-dashboard-shell .analyze-mode-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.teacher-dashboard-shell .analyze-mode-card {
+  display: grid;
+  gap: 8px;
+  min-height: 130px;
+  padding: 20px;
+  text-align: left;
+  border-radius: 22px;
+  border: 1px solid rgba(147, 197, 253, 0.18);
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.72), rgba(31, 25, 76, 0.66)),
+    rgba(15, 23, 42, 0.68);
+  color: #dbeafe;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.teacher-dashboard-shell .analyze-mode-card span {
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.teacher-dashboard-shell .analyze-mode-card strong {
+  color: #f8fafc;
+  font-size: 22px;
+}
+
+.teacher-dashboard-shell .analyze-mode-card small {
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.teacher-dashboard-shell .analyze-mode-card:hover,
+.teacher-dashboard-shell .analyze-mode-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(45, 212, 191, 0.48);
+  box-shadow: 0 16px 38px rgba(37, 99, 235, 0.18);
+  outline: none;
+}
+
+.teacher-dashboard-shell .analyze-mode-card.active {
+  border-color: rgba(45, 212, 191, 0.72);
+  background:
+    linear-gradient(135deg, rgba(20, 184, 166, 0.22), rgba(37, 99, 235, 0.24)),
+    rgba(15, 23, 42, 0.78);
+  box-shadow:
+    0 18px 44px rgba(37, 99, 235, 0.22),
+    inset 0 0 0 1px rgba(45, 212, 191, 0.18);
+}
+
+.teacher-dashboard-shell .analyze-mini-grid,
+.teacher-dashboard-shell .analyze-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.teacher-dashboard-shell .analyze-summary-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.teacher-dashboard-shell .analyze-summary-grid .stat-card {
+  min-height: 112px;
+  padding: 22px;
+}
+
+.teacher-dashboard-shell .analyze-summary-grid .stat-card strong {
+  font-size: clamp(30px, 2.8vw, 44px);
+}
+
+.teacher-dashboard-shell .analyze-mini-grid .stat-card,
+.teacher-dashboard-shell .analyze-summary-grid .stat-card {
+  background: rgba(15, 23, 42, 0.66);
+  border-color: rgba(147, 197, 253, 0.18);
+  color: #f8fafc;
+}
+
+.teacher-dashboard-shell .analyze-mini-grid .stat-card span,
+.teacher-dashboard-shell .analyze-summary-grid .stat-card span {
+  color: #cbd5e1;
+}
+
+.teacher-dashboard-shell .analyze-section {
+  padding: 28px;
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.88), rgba(34, 25, 78, 0.8)),
+    rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(147, 197, 253, 0.2);
+  color: #f8fafc;
+  animation: panel-rise 0.28s ease both;
+}
+
+.teacher-dashboard-shell .analyze-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.teacher-dashboard-shell .analyze-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.teacher-dashboard-shell .analyze-collapse-button {
+  min-width: 150px;
+  white-space: nowrap;
+}
+
+.teacher-dashboard-shell .analyze-collapsible-content {
+  animation: panel-rise 0.22s ease both;
+}
+
+.teacher-dashboard-shell .analyze-section-heading h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 28px;
+}
+
+.teacher-dashboard-shell .analyze-topic-highlight {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.teacher-dashboard-shell .analyze-topic-highlight span {
+  padding: 9px 13px;
+  border-radius: 999px;
+  color: #bfdbfe;
+  background: rgba(30, 64, 175, 0.28);
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  font-weight: 800;
+}
+
+.teacher-dashboard-shell .analyze-topic-list {
+  display: grid;
+  gap: 12px;
+}
+
+.teacher-dashboard-shell .analyze-topic-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 20px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.56);
+  border: 1px solid rgba(147, 197, 253, 0.18);
+}
+
+.teacher-dashboard-shell .analyze-topic-row h3 {
+  margin: 0;
+  color: #f8fafc;
+}
+
+.teacher-dashboard-shell .analyze-topic-row p,
+.teacher-dashboard-shell .analyze-attempt-row span {
+  color: #cbd5e1;
+}
+
+.teacher-dashboard-shell .analyze-topic-metrics {
+  display: grid;
+  gap: 8px;
+}
+
+.teacher-dashboard-shell .analyze-topic-metrics strong {
+  color: #f8fafc;
+  font-size: 30px;
+}
+
+.teacher-dashboard-shell .analyze-accuracy-bar {
+  height: 11px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.78);
+  border: 1px solid rgba(147, 197, 253, 0.12);
+}
+
+.teacher-dashboard-shell .analyze-accuracy-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22c55e, #38bdf8);
+  animation: bar-fill 0.5s ease both;
+}
+
+.teacher-dashboard-shell .analyze-section table {
+  color: #f8fafc;
+}
+
+.teacher-dashboard-shell .analyze-section th {
+  color: #bfdbfe;
+}
+
+.teacher-dashboard-shell .analyze-section td {
+  color: #e2e8f0;
+}
+
+.teacher-dashboard-shell .analyze-section .muted {
+  color: #94a3b8;
+}
+
+.teacher-dashboard-shell .analyze-table-accuracy {
+  display: grid;
+  min-width: 150px;
+  gap: 7px;
+}
+
+.teacher-dashboard-shell .compact-button {
+  min-height: 40px;
+  padding: 9px 14px;
+  font-size: 14px;
+}
+
+.teacher-dashboard-shell .analyze-student-detail {
+  display: grid;
+  gap: 18px;
+}
+
+.teacher-dashboard-shell .analyze-student-detail h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 30px;
+}
+
+.teacher-dashboard-shell .analyze-attempt-list {
+  display: grid;
+  gap: 10px;
+}
+
+.teacher-dashboard-shell .analyze-attempt-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 120px 100px 90px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(147, 197, 253, 0.16);
+}
+
+.teacher-dashboard-shell .success-text {
+  color: #86efac;
+}
+
+.teacher-dashboard-shell .danger-text {
+  color: #fca5a5;
+}

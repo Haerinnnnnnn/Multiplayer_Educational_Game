@@ -1,0 +1,451 @@
+.app-frame .game-panel > p:not(.eyebrow):not(.muted):not(.score-text) strong {
+  color: #ffffff;
+}
+
+.app-frame input,
+.app-frame select,
+.app-frame textarea {
+  border-color: rgba(165, 180, 252, 0.24);
+  background: rgba(2, 6, 23, 0.54);
+  color: #f8fafc;
+}
+
+.app-frame input::placeholder,
+.app-frame textarea::placeholder {
+  color: #94a3b8;
+}
+
+.app-frame .form-grid label,
+.app-frame .field-label,
+.app-frame .qr-upload-label {
+  color: #dbeafe;
+}
+
+.app-frame th,
+.app-frame td {
+  border-bottom-color: rgba(165, 180, 252, 0.18);
+}
+
+.app-frame th {
+  color: #c4b5fd;
+}
+
+.app-frame td {
+  color: #e5e7eb;
+}
+
+.app-frame tbody tr:hover {
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.app-frame .session-code {
+  width: fit-content;
+  border-radius: 16px;
+  padding: 8px 14px;
+  background: rgba(37, 99, 235, 0.14);
+  color: #ffffff;
+  text-shadow: 0 0 28px rgba(129, 140, 248, 0.45);
+}
+
+.app-frame .session-copy-button {
+  border-color: rgba(147, 197, 253, 0.3);
+  background: rgba(15, 23, 42, 0.72);
+  color: #bfdbfe;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+.app-frame .session-copy-button:hover {
+  border-color: rgba(96, 165, 250, 0.58);
+  color: #ffffff;
+}
+
+.app-frame .session-copy-button.copied {
+  border-color: rgba(45, 212, 191, 0.62);
+  background: rgba(20, 184, 166, 0.18);
+  color: #99f6e4;
+}
+
+.app-frame .qr-code-image {
+  border-color: rgba(165, 180, 252, 0.32);
+  border-radius: 16px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+}
+
+.app-frame .join-session-link {
+  color: #93c5fd;
+}
+
+.app-frame .lobby-module-access,
+.app-frame .module-access-summary,
+.app-frame .waiting-rule-row,
+.app-frame .module-access-switch,
+.app-frame .participant-list li {
+  border-color: rgba(165, 180, 252, 0.22);
+  background: rgba(2, 6, 23, 0.44);
+  color: #f8fafc;
+}
+
+.app-frame .participant-list li {
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.app-frame .participant-list li:hover {
+  background: rgba(96, 165, 250, 0.08);
+  transform: translateY(-1px);
+}
+
+.app-frame .module-section-heading h2 {
+  color: #ffffff;
+}
+
+.app-frame .waiting-panel {
+  position: relative;
+  overflow: hidden;
+  min-height: 420px;
+  align-content: center;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(124, 58, 237, 0.3), transparent 34%),
+    rgba(15, 23, 42, 0.78);
+}
+
+.app-frame .waiting-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(226, 232, 240, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(226, 232, 240, 0.07) 1px, transparent 1px);
+  background-size: 36px 36px;
+  opacity: 0.36;
+  pointer-events: none;
+}
+
+.app-frame .waiting-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.app-frame .waiting-panel h2 {
+  font-size: 46px;
+}
+
+.app-frame .waiting-game-badge.classic {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.app-frame .waiting-game-badge.qr-pair {
+  background: rgba(96, 165, 250, 0.16);
+  color: #93c5fd;
+}
+
+.app-frame .waiting-rule-row span {
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+}
+
+.app-frame .waiting-rule-row p {
+  color: #dbeafe;
+}
+
+.app-frame .module-access-rejected {
+  border-color: rgba(248, 113, 113, 0.42);
+  background: rgba(127, 29, 29, 0.36);
+  color: #fecaca;
+}
+
+.app-frame .qr-pair-waiting-box {
+  border-color: rgba(96, 165, 250, 0.24);
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.app-frame .qr-scanner-frame {
+  border: 1px solid rgba(165, 180, 252, 0.24);
+  border-radius: 16px;
+  background: #020617;
+}
+
+.app-frame .feedback,
+.student-dashboard-shell .feedback,
+.teacher-dashboard-shell .feedback,
+.admin-dashboard-shell .feedback {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(96, 165, 250, 0.34);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 96% 10%, rgba(124, 58, 237, 0.2), transparent 30%),
+    rgba(15, 23, 42, 0.78);
+  color: #dbeafe;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.app-frame .feedback::before,
+.student-dashboard-shell .feedback::before,
+.teacher-dashboard-shell .feedback::before,
+.admin-dashboard-shell .feedback::before {
+  content: '';
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #22d3ee, #8b5cf6);
+  box-shadow: 0 0 16px rgba(96, 165, 250, 0.62);
+}
+
+.app-frame .ongoing-room-warning,
+.teacher-dashboard-shell .ongoing-room-warning {
+  border: 1px solid rgba(251, 191, 36, 0.36);
+  background: rgba(251, 191, 36, 0.12);
+  color: #fde68a;
+}
+
+.student-dashboard-shell,
+.teacher-dashboard-shell {
+  color: #f8fafc;
+}
+
+.student-dashboard-shell .student-hero-panel,
+.teacher-dashboard-shell .teacher-hero-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(165, 180, 252, 0.24);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 82% 18%, rgba(124, 58, 237, 0.4), transparent 30%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 27, 75, 0.78));
+  color: #f8fafc;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px);
+}
+
+.student-dashboard-shell .student-hero-panel::before,
+.teacher-dashboard-shell .teacher-hero-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(226, 232, 240, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(226, 232, 240, 0.07) 1px, transparent 1px);
+  background-size: 36px 36px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.student-dashboard-shell .student-hero-panel > *,
+.teacher-dashboard-shell .teacher-hero-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.student-dashboard-shell .student-hero-panel h1,
+.teacher-dashboard-shell .teacher-hero-panel h1 {
+  color: #ffffff;
+}
+
+.student-dashboard-shell .student-hero-panel p,
+.teacher-dashboard-shell .teacher-hero-panel p {
+  color: #cbd5e1;
+}
+
+.student-dashboard-shell .student-profile-card,
+.student-dashboard-shell .activity-card,
+.student-dashboard-shell .student-module-card,
+.teacher-dashboard-shell .teacher-profile-panel,
+.teacher-dashboard-shell .panel,
+.teacher-dashboard-shell .table-panel,
+.teacher-dashboard-shell .teacher-history-card,
+.teacher-dashboard-shell .history-session-analytics,
+.teacher-dashboard-shell .history-question-summary,
+.teacher-dashboard-shell .review-section-card,
+.student-dashboard-shell .panel,
+.student-dashboard-shell .table-panel {
+  border: 1px solid rgba(165, 180, 252, 0.24);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.74);
+  color: #f8fafc;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(16px);
+}
+
+.student-dashboard-shell .student-profile-card,
+.student-dashboard-shell .activity-card,
+.student-dashboard-shell .student-module-card,
+.teacher-dashboard-shell .teacher-profile-panel,
+.teacher-dashboard-shell .panel,
+.teacher-dashboard-shell .table-panel {
+  animation: adminCardRise 0.42s ease both;
+}
+
+.student-dashboard-shell .student-profile-card h2,
+.student-dashboard-shell .student-module-card h2,
+.teacher-dashboard-shell .teacher-profile-panel h2,
+.teacher-dashboard-shell .panel h2,
+.teacher-dashboard-shell .panel h3,
+.teacher-dashboard-shell .table-panel strong,
+.student-dashboard-shell .panel h2,
+.student-dashboard-shell .panel h3,
+.student-dashboard-shell .table-panel strong {
+  color: #ffffff;
+}
+
+.student-dashboard-shell .muted,
+.teacher-dashboard-shell .muted,
+.student-dashboard-shell .panel p,
+.teacher-dashboard-shell .panel p,
+.student-dashboard-shell .student-module-card p,
+.teacher-dashboard-shell .teacher-profile-panel p,
+.teacher-dashboard-shell .active-session-card p {
+  color: #cbd5e1;
+}
+
+.student-dashboard-shell .student-module-card .module-lock-message {
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  background: rgba(127, 29, 29, 0.72);
+  color: #fee2e2;
+  box-shadow: 0 12px 28px rgba(127, 29, 29, 0.2);
+}
+
+.teacher-dashboard-shell .locked-module-card .module-lock-message,
+.teacher-dashboard-shell .create-session-flow .lock-warning,
+.create-session-flow .lock-warning {
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  background: rgba(127, 29, 29, 0.72);
+  color: #fee2e2;
+  box-shadow: 0 12px 28px rgba(127, 29, 29, 0.2);
+}
+
+.student-dashboard-shell .stats-grid .stat-card,
+.teacher-dashboard-shell .stats-grid .stat-card {
+  min-height: 138px;
+  border: 1px solid rgba(165, 180, 252, 0.24);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.74);
+  color: #f8fafc;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+  animation: adminCardRise 0.42s ease both;
+}
+
+.teacher-dashboard-shell .stats-grid .stat-card:nth-child(2),
+.student-dashboard-shell .stats-grid .stat-card:nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.teacher-dashboard-shell .stats-grid .stat-card:nth-child(3),
+.student-dashboard-shell .stats-grid .stat-card:nth-child(3) {
+  animation-delay: 0.12s;
+}
+
+.teacher-dashboard-shell .stats-grid .stat-card:nth-child(4),
+.student-dashboard-shell .stats-grid .stat-card:nth-child(4) {
+  animation-delay: 0.18s;
+}
+
+.student-dashboard-shell .stats-grid .stat-card p,
+.teacher-dashboard-shell .stats-grid .stat-card p {
+  color: #cbd5e1;
+}
+
+.student-dashboard-shell .stats-grid .stat-card strong,
+.teacher-dashboard-shell .stats-grid .stat-card strong {
+  color: #ffffff;
+}
+
+.student-dashboard-shell .student-level-card {
+  border-color: rgba(96, 165, 250, 0.34);
+  background:
+    radial-gradient(circle at 88% 14%, rgba(34, 211, 238, 0.16), transparent 34%),
+    rgba(15, 23, 42, 0.58);
+}
+
+.student-dashboard-shell .student-leaderboard-hero,
+.student-dashboard-shell .student-exp-leaderboard,
+.teacher-dashboard-shell .student-leaderboard-hero,
+.teacher-dashboard-shell .student-exp-leaderboard {
+  border-color: rgba(165, 180, 252, 0.24);
+  background:
+    radial-gradient(circle at 86% 18%, rgba(96, 165, 250, 0.14), transparent 34%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.78), rgba(49, 46, 129, 0.58));
+  color: #f8fafc;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(16px);
+  animation: adminCardRise 0.42s ease both;
+}
+
+.student-dashboard-shell .student-leaderboard-hero h1,
+.student-dashboard-shell .student-exp-leaderboard-header h2,
+.teacher-dashboard-shell .student-leaderboard-hero h1,
+.teacher-dashboard-shell .student-exp-leaderboard-header h2 {
+  color: #ffffff;
+}
+
+.student-dashboard-shell .student-leaderboard-hero p,
+.teacher-dashboard-shell .student-leaderboard-hero p {
+  color: #cbd5e1;
+}
+
+.student-dashboard-shell .student-leaderboard-hero > span,
+.student-dashboard-shell .student-exp-leaderboard-header > span,
+.teacher-dashboard-shell .student-leaderboard-hero > span,
+.teacher-dashboard-shell .student-exp-leaderboard-header > span {
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  color: #ffffff;
+}
+
+.student-dashboard-shell .student-exp-leaderboard-list li,
+.teacher-dashboard-shell .student-exp-leaderboard-list li {
+  border-color: rgba(165, 180, 252, 0.22);
+  background: rgba(2, 6, 23, 0.44);
+  color: #f8fafc;
+}
+
+.student-dashboard-shell .student-exp-leaderboard-list li:nth-child(1),
+.teacher-dashboard-shell .student-exp-leaderboard-list li:nth-child(1) {
+  border-color: rgba(250, 204, 21, 0.5);
+  background:
+    radial-gradient(circle at 8% 50%, rgba(250, 204, 21, 0.16), transparent 30%),
+    rgba(2, 6, 23, 0.5);
+}
+
+.student-dashboard-shell .student-exp-leaderboard-list li:nth-child(2),
+.teacher-dashboard-shell .student-exp-leaderboard-list li:nth-child(2) {
+  animation-delay: 0.04s;
+}
+
+.student-dashboard-shell .student-exp-leaderboard-list li:nth-child(3),
+.teacher-dashboard-shell .student-exp-leaderboard-list li:nth-child(3) {
+  animation-delay: 0.08s;
+}
+
+.student-dashboard-shell .student-exp-leaderboard-list strong,
+.teacher-dashboard-shell .student-exp-leaderboard-list strong {
+  color: #93c5fd;
+}
+
+.student-dashboard-shell .student-exp-leaderboard-list span,
+.student-dashboard-shell .student-exp-leaderboard-list b,
+.teacher-dashboard-shell .student-exp-leaderboard-list span,
+.teacher-dashboard-shell .student-exp-leaderboard-list b {
+  color: #ffffff;
+}
+
+.student-dashboard-shell .student-exp-leaderboard-list .current-student {
+  border-color: rgba(45, 212, 191, 0.62);
+  background:
+    radial-gradient(circle at 92% 30%, rgba(45, 212, 191, 0.18), transparent 36%),
+    rgba(15, 23, 42, 0.72);
+}
+
+.student-dashboard-shell .leaderboard-error,
+.teacher-dashboard-shell .leaderboard-error {
+  color: #fca5a5;
+}

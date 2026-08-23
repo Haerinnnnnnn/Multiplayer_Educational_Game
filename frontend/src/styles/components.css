@@ -1,0 +1,321 @@
+.student-dashboard-shell .level-badge {
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+}
+
+.student-dashboard-shell .level-progress-track {
+  background: rgba(148, 163, 184, 0.26);
+}
+
+.student-dashboard-shell .student-level-meta,
+.student-dashboard-shell .profile-list dt,
+.teacher-dashboard-shell .profile-list dt {
+  color: #a5b4fc;
+}
+
+.student-dashboard-shell .profile-list dd,
+.teacher-dashboard-shell .profile-list dd {
+  color: #ffffff;
+}
+
+.student-dashboard-shell .student-home-modules {
+  border-top-color: rgba(165, 180, 252, 0.22);
+}
+
+.student-dashboard-shell .student-home-module-row,
+.teacher-dashboard-shell .active-session-card,
+.teacher-dashboard-shell .manual-question-item,
+.teacher-dashboard-shell .session-mode-card,
+.teacher-dashboard-shell .module-access-switch,
+.student-dashboard-shell .answer-history-row {
+  border-color: rgba(165, 180, 252, 0.22);
+  background: rgba(2, 6, 23, 0.44);
+  color: #f8fafc;
+}
+
+.student-dashboard-shell .student-home-module-row span,
+.teacher-dashboard-shell .manual-question-item strong {
+  color: #93c5fd;
+}
+
+.teacher-dashboard-shell .manual-question-item span {
+  color: #e5e7eb;
+  font-weight: 800;
+}
+
+.teacher-dashboard-shell .manual-question-item:hover {
+  border-color: rgba(96, 165, 250, 0.48);
+  background: rgba(15, 23, 42, 0.68);
+}
+
+.teacher-dashboard-shell .manual-question-item:has(input:checked) {
+  border-color: rgba(96, 165, 250, 0.72);
+  background:
+    radial-gradient(circle at 96% 18%, rgba(96, 165, 250, 0.2), transparent 36%),
+    rgba(15, 23, 42, 0.76);
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.16);
+}
+
+.teacher-dashboard-shell .session-mode-card.active {
+  border-color: rgba(129, 140, 248, 0.72);
+  box-shadow: 0 16px 34px rgba(79, 70, 229, 0.24);
+}
+
+.teacher-dashboard-shell .session-game-card,
+.teacher-dashboard-shell .session-game-card.active {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.teacher-dashboard-shell .session-mode-card small,
+.teacher-dashboard-shell .module-access-switch small,
+.student-dashboard-shell .activity-card-main small,
+.student-dashboard-shell .answer-history-row p {
+  color: #94a3b8;
+}
+
+.student-dashboard-shell .activity-card {
+  overflow: hidden;
+}
+
+.student-dashboard-shell .activity-card-main {
+  background: transparent;
+  color: #f8fafc;
+}
+
+.student-dashboard-shell .activity-card-main:hover {
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.student-dashboard-shell .activity-score {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.student-dashboard-shell .activity-score small {
+  color: #bbf7d0;
+}
+
+.student-dashboard-shell .activity-metrics span {
+  background: rgba(165, 180, 252, 0.14);
+  color: #dbeafe;
+}
+
+.student-dashboard-shell .student-request-message,
+.student-dashboard-shell .profile-details-form label,
+.student-dashboard-shell .change-password-form label,
+.teacher-dashboard-shell .form-grid label,
+.teacher-dashboard-shell .profile-details-form label,
+.teacher-dashboard-shell .change-password-form label,
+.teacher-dashboard-shell .field-label,
+.teacher-dashboard-shell .mcq-option-grid label,
+.teacher-dashboard-shell .review-request-form label,
+.teacher-dashboard-shell .session-mode-field legend,
+.admin-dashboard-shell .profile-details-form label {
+  color: #dbeafe;
+}
+
+.student-dashboard-shell .profile-details-form h3,
+.student-dashboard-shell .change-password-form h3,
+.teacher-dashboard-shell .profile-details-form h3,
+.teacher-dashboard-shell .change-password-form h3,
+.admin-dashboard-shell .profile-details-form h3 {
+  color: #ffffff;
+}
+
+.student-dashboard-shell input,
+.student-dashboard-shell select,
+.student-dashboard-shell textarea,
+.teacher-dashboard-shell input,
+.teacher-dashboard-shell select,
+.teacher-dashboard-shell textarea,
+.admin-dashboard-shell input,
+.admin-dashboard-shell select,
+.admin-dashboard-shell textarea,
+.teacher-dashboard-shell .import-edit-field,
+.teacher-dashboard-shell .import-answer-select {
+  border-color: rgba(165, 180, 252, 0.24);
+  background: rgba(2, 6, 23, 0.54);
+  color: #f8fafc;
+}
+
+.student-dashboard-shell input::placeholder,
+.student-dashboard-shell textarea::placeholder,
+.teacher-dashboard-shell input::placeholder,
+.teacher-dashboard-shell textarea::placeholder,
+.admin-dashboard-shell input::placeholder,
+.admin-dashboard-shell textarea::placeholder {
+  color: #94a3b8;
+}
+
+.student-dashboard-shell th,
+.student-dashboard-shell td,
+.teacher-dashboard-shell th,
+.teacher-dashboard-shell td {
+  border-bottom-color: rgba(165, 180, 252, 0.18);
+}
+
+.student-dashboard-shell th,
+.teacher-dashboard-shell th {
+  color: #c4b5fd;
+}
+
+.student-dashboard-shell td,
+.teacher-dashboard-shell td {
+  color: #e5e7eb;
+}
+
+.student-dashboard-shell tbody tr,
+.teacher-dashboard-shell tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+.student-dashboard-shell tbody tr:hover,
+.teacher-dashboard-shell tbody tr:hover {
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.teacher-dashboard-shell > .teacher-dashboard-content > .teacher-dashboard-panel-in > .admin-user-actions,
+.student-dashboard-shell > .student-dashboard-content > .student-dashboard-panel-in > .admin-user-actions {
+  padding: 20px;
+  border: 1px solid rgba(165, 180, 252, 0.24);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.66);
+  color: #f8fafc;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(16px);
+}
+
+.teacher-dashboard-shell .teacher-section-list {
+  align-items: stretch;
+}
+
+.teacher-dashboard-shell .teacher-section-list > .panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.teacher-dashboard-shell .teacher-section-list > .panel .module-card-meta-grid {
+  margin-top: auto;
+}
+
+.teacher-dashboard-shell .teacher-section-list > .panel > .button-row {
+  min-height: 58px;
+  align-items: flex-end;
+}
+
+.teacher-dashboard-shell .module-loading-overlay {
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.74);
+  color: #f8fafc;
+}
+
+.teacher-dashboard-shell .locked-module-card,
+.student-dashboard-shell .locked-module-card {
+  border-color: rgba(248, 113, 113, 0.48);
+  background:
+    radial-gradient(circle at 86% 18%, rgba(248, 113, 113, 0.18), transparent 32%),
+    rgba(15, 23, 42, 0.78);
+}
+
+html:has(.student-dashboard-shell),
+html:has(.teacher-dashboard-shell),
+html:has(.admin-dashboard-shell),
+body:has(.student-dashboard-shell),
+body:has(.teacher-dashboard-shell),
+body:has(.admin-dashboard-shell),
+.student-dashboard-shell,
+.teacher-dashboard-shell,
+.admin-dashboard-shell {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html:has(.student-dashboard-shell)::-webkit-scrollbar,
+html:has(.teacher-dashboard-shell)::-webkit-scrollbar,
+html:has(.admin-dashboard-shell)::-webkit-scrollbar,
+body:has(.student-dashboard-shell)::-webkit-scrollbar,
+body:has(.teacher-dashboard-shell)::-webkit-scrollbar,
+body:has(.admin-dashboard-shell)::-webkit-scrollbar,
+.student-dashboard-shell::-webkit-scrollbar,
+.teacher-dashboard-shell::-webkit-scrollbar,
+.admin-dashboard-shell::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+@keyframes menu-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dashboard-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes session-options-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes game-card-float-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes adminCardRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes adminRadarPulse {
+  from {
+    width: 8px;
+    height: 8px;
+    opacity: 0.8;
+  }
+
+  to {
+    width: 128px;
+    height: 128px;
+    opacity: 0;
+  }
+}

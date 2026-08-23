@@ -1,0 +1,74 @@
+.app-frame {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  padding: 28px;
+  overflow-x: hidden;
+  background: #020617;
+  color: #f8fafc;
+}
+
+.topbar {
+  position: relative;
+  z-index: 1;
+  max-width: 1120px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid rgba(165, 180, 252, 0.22);
+  border-radius: 18px;
+  padding: 18px 22px;
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+}
+
+.topbar-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.danger-topbar-button {
+  border-color: rgba(248, 113, 113, 0.42);
+  color: #fecaca;
+}
+
+.topbar h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 32px;
+}
+
+.content-stack {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.stats-grid,
+.action-grid,
+.list-grid,
+.split-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.action-grid,
+.list-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.split-grid {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
