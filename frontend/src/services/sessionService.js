@@ -1,6 +1,20 @@
 import { supabase } from './supabaseClient.js';
 import { makeSessionCode } from '../utils/sessionHelpers.js';
 import { toQuestion } from './questionService.js';
+import { classicMcqScoreLogic } from '../domain/scoring/ClassicMcqScoreLogic.js';
+import { qrPairScoreLogic } from '../domain/scoring/QrPairScoreLogic.js';
+import { qrPairRoundPlanner } from '../domain/rounds/QrPairRoundPlanner.js';
+import { manualQuestionSelect } from '../domain/questions/ManualQuestionSelect.js';
+import { randomQuestionSelect } from '../domain/questions/RandomQuestionSelect.js';
+
+const QUESTION_SELECTION_STRATEGIES = new Map([
+  [randomQuestionSelect.mode, randomQuestionSelect],
+  [manualQuestionSelect.mode, manualQuestionSelect],
+]);
+
+function getQuestionSelectionStrategy(mode) {
+  return QUESTION_SELECTION_STRATEGIES.get(mode) || randomQuestionSelect;
+}
 
 function toParticipant(row) {
   return {
@@ -128,28 +142,6 @@ function toResponse(row, participants = []) {
   };
 }
 
-function getQuestionIds(module, questionCount) {
-  return (module?.questions || []).slice(0, questionCount).map((question) => question.id);
-}
-
-function shuffleQuestions(questions) {
-  return [...questions]
-    .map((question) => ({ question, sort: Math.random() }))
-    .sort((left, right) => left.sort - right.sort)
-    .map(({ question }) => question);
-}
-
-function getSessionQuestionIds({ module, questionCount, questionSelectionMode, selectedQuestionIds }) {
-  if (questionSelectionMode === 'manual') {
-    return (selectedQuestionIds || []).map((questionId) => Number(questionId));
-  }
-
-  const safeQuestionCount = Math.min(Number(questionCount), module.questions.length);
-  return shuffleQuestions(module.questions)
-    .slice(0, safeQuestionCount)
-    .map((question) => question.id);
-}
-
 function isMissingSchemaColumnError(error, columns = []) {
   const message = String(error?.message || '').toLowerCase();
   const details = String(error?.details || '').toLowerCase();
@@ -269,10 +261,9 @@ export async function createDatabaseSession({
   timerEnabled = true,
   wrongScanPenaltySeconds = 10,
 }) {
-  const sessionQuestionIds = getSessionQuestionIds({
+  const sessionQuestionIds = getQuestionSelectionStrategy(questionSelectionMode).select({
     module,
     questionCount,
-    questionSelectionMode,
     selectedQuestionIds,
   });
   const safeQuestionCount = sessionQuestionIds.length;
@@ -393,7 +384,7 @@ export async function fetchSessionDetails(sessionId, module) {
   const session = toSession(
     data,
     participants,
-    getQuestionIds(sessionModule, data.question_count),
+    randomQuestionSelect.getFallbackIds(sessionModule, data.question_count),
     sessionModule,
   );
   session.responses = await fetchSessionResponses(sessionId, participants);
@@ -544,7 +535,7 @@ export async function fetchTeacherSessions(teacherId, modules = []) {
     const mappedSession = toSession(
       session,
       participants,
-      getQuestionIds(module, session.question_count),
+      randomQuestionSelect.getFallbackIds(module, session.question_count),
       module,
     );
     mappedSession.responses = (responsesBySession.get(session.id) || []).map((response) =>
@@ -703,7 +694,7 @@ export async function joinDatabaseSession({ code, student, studentName }) {
     session: toSession(
       sessionRow,
       participants,
-      getQuestionIds(module, sessionRow.question_count),
+      randomQuestionSelect.getFallbackIds(module, sessionRow.question_count),
     ),
   };
 }
@@ -961,7 +952,7 @@ export async function checkSessionJoinAccess({ code, student }) {
     session: toSession(
       sessionRow,
       [],
-      getQuestionIds(module, sessionRow.question_count),
+      randomQuestionSelect.getFallbackIds(module, sessionRow.question_count),
     ),
   };
 }
@@ -1072,59 +1063,6 @@ export async function resumeDatabaseSession(sessionId, currentQuestionIndex = 0,
   return data;
 }
 
-function shuffleItems(items) {
-  return [...items]
-    .map((item) => ({ item, sort: Math.random() }))
-    .sort((left, right) => left.sort - right.sort)
-    .map(({ item }) => item);
-}
-
-function makeAnswerToken() {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-}
-
-function calculateQrPairScore({ elapsedSeconds, roundSeconds, wrongScanCount }) {
-  if (elapsedSeconds >= roundSeconds) {
-    return 0;
-  }
-
-  const baseScore = 10;
-  const elapsedRatio = elapsedSeconds / roundSeconds;
-  const fastBonus = elapsedRatio <= 0.15 ? 2 : 0;
-  const wrongPenalty = Math.min(wrongScanCount, 4);
-  const timePenalty = elapsedRatio <= 0.2
-    ? 0
-    : Math.min(Math.ceil(((elapsedRatio - 0.2) / 0.8) * 4), 4);
-
-  return Math.max(baseScore + fastBonus - wrongPenalty - timePenalty, 0);
-}
-
-function calculateClassicMcqScore({ elapsedSeconds, isCorrect, roundSeconds, timerEnabled }) {
-  if (!isCorrect) {
-    return 0;
-  }
-
-  if (!timerEnabled) {
-    return 10;
-  }
-
-  if (elapsedSeconds >= roundSeconds) {
-    return 0;
-  }
-
-  const baseScore = 10;
-  const elapsedRatio = elapsedSeconds / roundSeconds;
-  const fastBonus = elapsedRatio <= 0.15 ? 2 : 0;
-  const timePenalty = elapsedRatio <= 0.2
-    ? 0
-    : Math.min(Math.ceil(((elapsedRatio - 0.2) / 0.8) * 6), 6);
-
-  return Math.max(baseScore + fastBonus - timePenalty, 4);
-}
 
 export async function submitClassicMcqAnswer({
   answer,
@@ -1160,7 +1098,7 @@ export async function submitClassicMcqAnswer({
   const selectedOption = String(answer || '').trim().toUpperCase();
   const isCorrect = !isTimeout && selectedOption === question.correctOption;
   const responseStatus = isTimeout ? 'timeout' : isCorrect ? 'correct' : 'wrong';
-  const scoreAwarded = calculateClassicMcqScore({
+  const scoreAwarded = classicMcqScoreLogic.calculate({
     elapsedSeconds,
     isCorrect,
     roundSeconds: session.roundSeconds || 60,
@@ -1266,23 +1204,6 @@ export async function endClassicSessionIfAllCompleted(session) {
   return updateDatabaseSessionStatus(session.id, 'ended', session.currentQuestionIndex || 0);
 }
 
-function getCompletedQuestionMap(assignments) {
-  return assignments.reduce((collection, assignment) => {
-    if ((assignment.assignment_type || 'pair') !== 'pair') {
-      return collection;
-    }
-
-    if (assignment.status !== 'correct' && assignment.status !== 'timeout') {
-      return collection;
-    }
-
-    const completedQuestions = collection.get(assignment.question_holder_participant_id) || new Set();
-    completedQuestions.add(assignment.question_id);
-    collection.set(assignment.question_holder_participant_id, completedQuestions);
-    return collection;
-  }, new Map());
-}
-
 async function fetchAllQrPairAssignments(sessionId) {
   const { data, error } = await supabase
     .from('qr_pair_assignments')
@@ -1315,39 +1236,16 @@ async function getNextTurnNumber(sessionId) {
 export async function createNextQrPairTurn({ session, participants }) {
   const questionIds = session.questionIds || [];
   const allAssignments = await fetchAllQrPairAssignments(session.id);
-  const completedQuestionMap = getCompletedQuestionMap(allAssignments);
-  const isOddStudentCount = participants.length % 2 !== 0;
-  const participantsWithRemaining = participants
-    .map((participant) => {
-      const completedQuestions = completedQuestionMap.get(participant.participantId) || new Set();
-      const remainingQuestionIds = questionIds.filter((questionId) => !completedQuestions.has(questionId));
-      return { ...participant, remainingQuestionIds };
-    })
-    .filter((participant) => participant.remainingQuestionIds.length > 0);
+  const roundPlan = qrPairRoundPlanner.createPlan({
+    questionIds,
+    participants,
+    previousAssignments: allAssignments,
+  });
 
-  if (participantsWithRemaining.length === 0) {
+  if (roundPlan.complete) {
     await updateDatabaseSessionStatus(session.id, 'ended', session.currentQuestionIndex);
     return null;
   }
-
-  const maxQuestionHoldersByStudents = Math.floor(participants.length / 2);
-  const maxQuestionHoldersByQuestions = isOddStudentCount
-    ? Math.max(questionIds.length - 1, 1)
-    : questionIds.length;
-  const questionHolderCount = Math.min(
-    maxQuestionHoldersByStudents,
-    maxQuestionHoldersByQuestions,
-    participantsWithRemaining.length,
-  );
-  const questionHolders = shuffleItems(participantsWithRemaining)
-    .sort((left, right) => right.remainingQuestionIds.length - left.remainingQuestionIds.length)
-    .slice(0, questionHolderCount);
-  const questionHolderIds = new Set(questionHolders.map((participant) => participant.participantId));
-  const answerHolders = shuffleItems(
-    participants.filter((participant) => !questionHolderIds.has(participant.participantId)),
-  );
-  const correctAnswerHolders = answerHolders.slice(0, questionHolders.length);
-  const decoyAnswerHolders = answerHolders.slice(questionHolders.length);
 
   const turnNumber = await getNextTurnNumber(session.id);
   const { data: turn, error: turnError } = await supabase
@@ -1365,32 +1263,20 @@ export async function createNextQrPairTurn({ session, participants }) {
     throw new Error(turnError.message);
   }
 
-  const usedQuestionIds = new Set();
-  const pairPlan = questionHolders.map((questionHolder, index) => {
-    const uniqueRemainingQuestionIds = questionHolder.remainingQuestionIds.filter(
-      (questionId) => !usedQuestionIds.has(questionId),
-    );
-    const questionId = shuffleItems(uniqueRemainingQuestionIds.length
-      ? uniqueRemainingQuestionIds
-      : questionHolder.remainingQuestionIds)[0];
-
-    usedQuestionIds.add(questionId);
-
-    return {
-      session_id: session.id,
-      turn_id: turn.id,
-      question_id: questionId,
-      question_holder_participant_id: questionHolder.participantId,
-      answer_holder_participant_id: correctAnswerHolders[index].participantId,
-      answer_qr_token: makeAnswerToken(),
-      assignment_type: 'pair',
-      status: 'pending',
-    };
-  });
+  const pairRows = roundPlan.pairs.map((pair) => ({
+    session_id: session.id,
+    turn_id: turn.id,
+    question_id: pair.questionId,
+    question_holder_participant_id: pair.questionHolderParticipantId,
+    answer_holder_participant_id: pair.answerHolderParticipantId,
+    answer_qr_token: pair.answerQrToken,
+    assignment_type: 'pair',
+    status: 'pending',
+  }));
 
   const { data: pairAssignments, error: assignmentError } = await supabase
     .from('qr_pair_assignments')
-    .insert(pairPlan)
+    .insert(pairRows)
     .select('*');
 
   if (assignmentError) {
@@ -1398,19 +1284,17 @@ export async function createNextQrPairTurn({ session, participants }) {
   }
 
   let decoyAssignments = [];
-  const decoyQuestionIds = questionIds.filter((questionId) => !usedQuestionIds.has(questionId));
-
-  if (decoyAnswerHolders.length && decoyQuestionIds.length && pairAssignments?.length) {
-    const decoyRows = decoyAnswerHolders.map((answerHolder, index) => {
-      const targetPair = pairAssignments[index % pairAssignments.length];
+  if (roundPlan.decoys.length && pairAssignments?.length) {
+    const decoyRows = roundPlan.decoys.map((decoy) => {
+      const targetPair = pairAssignments[decoy.targetPairIndex];
 
       return {
         session_id: session.id,
         turn_id: turn.id,
-        question_id: shuffleItems(decoyQuestionIds)[0],
+        question_id: decoy.questionId,
         question_holder_participant_id: targetPair.question_holder_participant_id,
-        answer_holder_participant_id: answerHolder.participantId,
-        answer_qr_token: makeAnswerToken(),
+        answer_holder_participant_id: decoy.answerHolderParticipantId,
+        answer_qr_token: decoy.answerQrToken,
         assignment_type: 'decoy',
         decoy_for_assignment_id: targetPair.id,
         status: 'pending',
@@ -1523,7 +1407,7 @@ export async function submitQrPairScan({ sessionId, questionHolderParticipantId,
     Math.floor((completedAt.getTime() - new Date(currentTurn.started_at).getTime()) / 1000),
     0,
   );
-  const scoreAwarded = calculateQrPairScore({
+  const scoreAwarded = qrPairScoreLogic.calculate({
     elapsedSeconds,
     roundSeconds: sessionRow.round_seconds || 60,
     wrongScanCount: assignment.wrong_scan_count || 0,

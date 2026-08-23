@@ -16,6 +16,8 @@ function toStudentUser(student) {
     lastSeenAt: student.last_seen_at,
     totalExp: student.total_exp || 0,
     level: student.level || 1,
+    emailVerifiedAt: student.email_verified_at,
+    emailStatus: student.email_verified_at ? 'verified' : 'awaiting_email',
   };
 }
 
@@ -30,6 +32,10 @@ function toTeacherUser(teacher) {
     schoolName: teacher.school_name,
     presenceStatus: teacher.presence_status || 'offline',
     lastSeenAt: teacher.last_seen_at,
+    approvalStatus: teacher.approval_status || 'awaiting_email',
+    approvalMessage: teacher.approval_message || '',
+    reviewedAt: teacher.reviewed_at,
+    emailVerifiedAt: teacher.email_verified_at,
   };
 }
 
@@ -212,6 +218,73 @@ export async function registerTeacher(profile) {
   return { user };
 }
 
+export async function queueTeacherApprovalAfterEmailConfirmation({ message = '' } = {}) {
+  const token = await getCurrentAccessToken();
+
+  if (!token) {
+    return null;
+  }
+
+  const response = await fetch(`${backendUrl}/api/auth/queue-teacher-approval`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message }),
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Unable to queue teacher approval request.');
+  }
+
+  return result.teacher || null;
+}
+
+export async function syncStudentEmailVerification() {
+  const token = await getCurrentAccessToken();
+
+  if (!token) {
+    return null;
+  }
+
+  const response = await fetch(`${backendUrl}/api/auth/sync-student-email`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Unable to sync student email verification.');
+  }
+
+  return result.student || null;
+}
+
+export async function fetchTeacherApprovalState(teacherId) {
+  const { data, error } = await supabase
+    .from('teachers')
+    .select('approval_status, approval_message, reviewed_at, email_verified_at')
+    .eq('id', teacherId)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    approvalStatus: data.approval_status || 'awaiting_email',
+    approvalMessage: data.approval_message || '',
+    reviewedAt: data.reviewed_at,
+    emailVerifiedAt: data.email_verified_at,
+  };
+}
+
 export async function loginUser(credentials) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email: credentials.email.trim().toLowerCase(),
@@ -233,7 +306,14 @@ export async function loginUser(credentials) {
     throw new Error('Please confirm your email before logging in. Check your inbox for the confirmation link.');
   }
 
-  const user = await fetchAccount(data.user.id);
+  let user = await fetchAccount(data.user.id);
+
+  if (user.role === 'student') {
+    const syncedStudent = await syncStudentEmailVerification().catch(() => null);
+    if (syncedStudent) {
+      user = { ...user, ...syncedStudent };
+    }
+  }
 
   if (user.role === 'student' || user.role === 'teacher') {
     await updateUserPresence(user, 'online');
@@ -251,7 +331,14 @@ export async function getCurrentAuthUser() {
     return null;
   }
 
-  const user = await fetchAccount(data.session.user.id);
+  let user = await fetchAccount(data.session.user.id);
+
+  if (user.role === 'student') {
+    const syncedStudent = await syncStudentEmailVerification().catch(() => null);
+    if (syncedStudent) {
+      user = { ...user, ...syncedStudent };
+    }
+  }
 
   if (user.role === 'student' || user.role === 'teacher') {
     await updateUserPresence(user, 'online');

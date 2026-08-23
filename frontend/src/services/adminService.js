@@ -20,6 +20,8 @@ function toStudentUser(student) {
     presenceStatus: student.presence_status || 'offline',
     lastSeenAt: student.last_seen_at,
     createdAt: student.created_at,
+    emailVerifiedAt: student.email_verified_at,
+    emailStatus: student.email_verified_at ? 'verified' : 'awaiting_email',
   };
 }
 
@@ -37,7 +39,21 @@ function toTeacherUser(teacher) {
     presenceStatus: teacher.presence_status || 'offline',
     lastSeenAt: teacher.last_seen_at,
     createdAt: teacher.created_at,
+    approvalStatus: teacher.approval_status || 'awaiting_email',
+    approvalMessage: teacher.approval_message || '',
+    reviewedAt: teacher.reviewed_at,
+    emailVerifiedAt: teacher.email_verified_at,
   };
+}
+
+async function getAdminAccessToken() {
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error || !data.session?.access_token) {
+    throw new Error('Admin session not found.');
+  }
+
+  return data.session.access_token;
 }
 
 function toAdminModule(module, teacher, questions = [], latestReviewRequest = null, chapters = []) {
@@ -86,6 +102,41 @@ export async function fetchAdminUsers() {
     ...(studentsResult.data || []).map(toStudentUser),
     ...(teachersResult.data || []).map(toTeacherUser),
   ].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+}
+
+export async function fetchTeacherAccountRequests() {
+  const accessToken = await getAdminAccessToken();
+  const response = await fetch(`${backendUrl}/api/admin/teacher-requests`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Failed to load teacher account requests.');
+  }
+
+  return result.requests || [];
+}
+
+export async function reviewTeacherAccountRequest(teacherId, decision, message = '') {
+  const accessToken = await getAdminAccessToken();
+  const response = await fetch(`${backendUrl}/api/admin/teacher-requests/${teacherId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ decision, message }),
+  });
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Failed to review teacher account request.');
+  }
+
+  return result.teacher;
 }
 
 export async function fetchAdminModules() {

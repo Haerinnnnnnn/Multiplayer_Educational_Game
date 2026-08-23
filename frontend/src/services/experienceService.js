@@ -1,45 +1,18 @@
 import { supabase } from './supabaseClient.js';
+import {
+  DEFAULT_EXP_LEVEL_THRESHOLDS,
+  expCalculator,
+} from '../domain/experience/EXPCalculator.js';
+import { leaderboardRanker } from '../domain/leaderboard/LeaderboardRanker.js';
 
-export const LEVEL_THRESHOLDS = [0, 100, 250, 500, 800, 1200, 1700, 2300, 3000, 4000];
+export const LEVEL_THRESHOLDS = DEFAULT_EXP_LEVEL_THRESHOLDS;
 
 export function getLevelFromExp(totalExp = 0) {
-  const safeTotal = Math.max(Number(totalExp) || 0, 0);
-  return LEVEL_THRESHOLDS.reduce(
-    (level, threshold, index) => (safeTotal >= threshold ? index + 1 : level),
-    1,
-  );
+  return expCalculator.getLevel(totalExp);
 }
 
 export function getLevelProgress(totalExp = 0) {
-  const safeTotal = Math.max(Number(totalExp) || 0, 0);
-  const level = getLevelFromExp(safeTotal);
-  const currentThreshold = LEVEL_THRESHOLDS[level - 1] ?? LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
-  const nextThreshold = LEVEL_THRESHOLDS[level] ?? null;
-
-  if (!nextThreshold) {
-    return {
-      currentThreshold,
-      expIntoLevel: safeTotal - currentThreshold,
-      level,
-      nextThreshold: null,
-      percent: 100,
-      remainingExp: 0,
-      totalExp: safeTotal,
-    };
-  }
-
-  const expIntoLevel = safeTotal - currentThreshold;
-  const expNeeded = nextThreshold - currentThreshold;
-
-  return {
-    currentThreshold,
-    expIntoLevel,
-    level,
-    nextThreshold,
-    percent: Math.max(0, Math.min(Math.round((expIntoLevel / expNeeded) * 100), 100)),
-    remainingExp: Math.max(nextThreshold - safeTotal, 0),
-    totalExp: safeTotal,
-  };
+  return expCalculator.getProgress(totalExp);
 }
 
 function toExperienceLog(row) {
@@ -105,12 +78,20 @@ export async function fetchStudentExperienceLeaderboard(limit = 10) {
     throw new Error(error.message);
   }
 
-  return (data || []).map((student, index) => ({
+  const students = (data || []).map((student) => ({
     id: student.student_id,
     studentCode: student.student_code,
     name: student.student_name || 'Student',
     totalExp: student.total_exp || 0,
     level: student.level || 1,
-    rank: index + 1,
   }));
+
+  return leaderboardRanker
+    .rankByScoreAndName(students, {
+      scoreSelector: (student) => student.totalExp,
+    })
+    .map((student, index) => ({
+      ...student,
+      rank: index + 1,
+    }));
 }
