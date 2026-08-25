@@ -483,3 +483,505 @@
     grid-column: 2;
   }
 }
+
+@media (max-width: 1024px) {
+  .app-frame {
+    padding: 24px;
+  }
+
+  .topbar,
+  .content-stack {
+    width: min(100%, 940px);
+  }
+
+  .stats-grid,
+  .results-stats-grid,
+  .session-review-stats-grid,
+  .analyze-summary-grid,
+  .analyze-mini-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .split-grid,
+  .student-dashboard-grid,
+  .student-settings-grid,
+  .admin-home-layout,
+  .session-review-overview,
+  .analyze-module-grid,
+  .analyze-mode-options,
+  .lobby-grid,
+  .live-lobby-grid,
+  .game-layout,
+  .classic-live-grid,
+  .qr-game-layout,
+  .results-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .student-dashboard-content,
+  .teacher-dashboard-content,
+  .admin-dashboard-content {
+    padding-inline: 24px;
+  }
+
+  .teacher-dashboard-shell .analyze-topic-row,
+  .teacher-dashboard-shell .analyze-section-heading,
+  .session-review-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .session-review-meta-grid,
+  .session-review-stats-grid {
+    gap: 14px;
+  }
+
+  .lobby-qr-action-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-action-stack {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-frame {
+    padding: 14px;
+  }
+
+  .topbar {
+    width: 100%;
+    align-items: stretch;
+    border-radius: 18px;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding: 16px;
+  }
+
+  .topbar h1 {
+    font-size: clamp(30px, 10vw, 42px);
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .topbar-actions > button,
+  .topbar-actions .glass-button-wrap {
+    flex: 1 1 150px;
+  }
+
+  .content-stack {
+    width: 100%;
+    gap: 14px;
+  }
+
+  .student-dashboard-nav,
+  .teacher-dashboard-nav,
+  .admin-dashboard-nav {
+    min-height: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .student-tabs,
+  .teacher-tabs,
+  .admin-tabs {
+    width: calc(100vw - 98px);
+    max-width: none;
+    display: flex;
+    gap: 6px;
+    justify-self: start;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .student-tabs::-webkit-scrollbar,
+  .teacher-tabs::-webkit-scrollbar,
+  .admin-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .student-tab,
+  .teacher-tab,
+  .admin-tab {
+    flex: 0 0 auto;
+    min-width: 92px;
+    min-height: 48px;
+    padding: 0 12px;
+    scroll-snap-align: start;
+    white-space: nowrap;
+  }
+
+  .student-tab-indicator,
+  .teacher-tab-indicator,
+  .admin-tab-indicator {
+    display: none;
+  }
+
+  .dashboard-profile-button,
+  .notification-button {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+  }
+
+  .student-dashboard-content,
+  .teacher-dashboard-content,
+  .admin-dashboard-content {
+    padding: 14px;
+  }
+
+  .student-hero-panel,
+  .teacher-hero-panel,
+  .admin-hero-panel,
+  .student-leaderboard-hero,
+  .teacher-dashboard-shell .analyze-hero,
+  .teacher-dashboard-shell .analyze-mode-panel,
+  .teacher-dashboard-shell .analyze-section,
+  .session-review-hero,
+  .results-summary-panel,
+  .results-leaderboard-panel,
+  .results-question-panel,
+  .panel,
+  .table-panel,
+  .card {
+    border-radius: 18px;
+    padding: 20px;
+  }
+
+  .student-hero-panel h1,
+  .teacher-hero-panel h1,
+  .admin-hero-panel h1,
+  .student-leaderboard-hero h1,
+  .teacher-dashboard-shell .analyze-hero h1,
+  .session-review-hero h2 {
+    font-size: clamp(32px, 11vw, 46px);
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+  }
+
+  .stats-grid,
+  .action-grid,
+  .list-grid,
+  .split-grid,
+  .student-dashboard-grid,
+  .student-settings-grid,
+  .results-stats-grid,
+  .session-review-stats-grid,
+  .session-review-meta-grid,
+  .teacher-dashboard-shell .analyze-summary-grid,
+  .teacher-dashboard-shell .analyze-mini-grid,
+  .teacher-dashboard-shell .analyze-mode-options,
+  .teacher-dashboard-shell .analyze-topic-row,
+  .teacher-dashboard-shell .analyze-topic-metrics,
+  .module-info-stats,
+  .module-info-game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .module-grid,
+  .student-module-list,
+  .activity-list,
+  .teacher-history-list,
+  .admin-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .module-card,
+  .teacher-module-card,
+  .student-module-card,
+  .activity-card,
+  .teacher-history-card {
+    min-height: auto;
+  }
+
+  .module-card-actions,
+  .student-module-card-actions,
+  .teacher-module-card-actions,
+  .table-action-row,
+  .button-row,
+  .results-question-actions,
+  .lobby-action-stack {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .module-card-actions > *,
+  .student-module-card-actions > *,
+  .teacher-module-card-actions > *,
+  .button-row > *,
+  .lobby-action-stack > * {
+    width: 100%;
+  }
+
+  .session-code-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .session-code {
+    max-width: 100%;
+    font-size: clamp(38px, 16vw, 58px);
+    letter-spacing: 0.08em;
+    overflow-wrap: anywhere;
+  }
+
+  .qr-code-image,
+  .lobby-qr-action-row .qr-code-image {
+    width: min(100%, 320px);
+    height: auto;
+    margin-inline: auto;
+  }
+
+  .lobby-participant-scroll {
+    max-height: 360px;
+  }
+
+  .waiting-room-actions {
+    justify-content: stretch;
+  }
+
+  .mcq-option-grid,
+  .answer-grid,
+  .session-mode-grid,
+  .game-type-card-grid,
+  .create-session-game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-question-list {
+    max-height: 420px;
+  }
+
+  .manual-question-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .classic-leaderboard-list li,
+  .student-exp-leaderboard-list li,
+  .results-leaderboard-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .classic-leaderboard-list li > *,
+  .student-exp-leaderboard-list li > *,
+  .results-leaderboard-row > * {
+    min-width: 0;
+  }
+
+  .podium-panel {
+    min-height: auto;
+    padding: 18px;
+  }
+
+  .podium-stage {
+    grid-template-columns: repeat(3, minmax(76px, 1fr));
+    min-height: 240px;
+    gap: 8px;
+  }
+
+  .podium-name-tag {
+    max-width: 100%;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .podium-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+
+  .podium-medal {
+    width: 48px;
+    height: 48px;
+    font-size: 28px;
+  }
+
+  .rank-1 .podium-block {
+    min-height: 170px;
+  }
+
+  .rank-2 .podium-block {
+    min-height: 130px;
+  }
+
+  .rank-3 .podium-block {
+    min-height: 112px;
+  }
+
+  .table-panel,
+  .table-scroll,
+  .nested-table-panel,
+  .module-info-table,
+  .admin-section-table,
+  .admin-question-table,
+  .import-preview-table {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-panel table,
+  .table-scroll table,
+  .nested-table-panel table,
+  .module-info-table table,
+  .admin-section-table table,
+  .admin-question-table table,
+  .import-preview-table table {
+    min-width: 680px;
+  }
+
+  .modal-backdrop,
+  .admin-dashboard-shell .modal-backdrop,
+  .confirm-modal-backdrop {
+    padding: 16px;
+  }
+
+  .modal-panel,
+  .module-info-modal,
+  .confirm-modal {
+    width: min(100%, 560px);
+    max-height: min(88vh, 720px);
+  }
+
+  .module-info-modal .module-info-content {
+    max-height: 70vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-frame {
+    padding: 10px;
+  }
+
+  .topbar,
+  .student-hero-panel,
+  .teacher-hero-panel,
+  .admin-hero-panel,
+  .student-leaderboard-hero,
+  .teacher-dashboard-shell .analyze-hero,
+  .teacher-dashboard-shell .analyze-mode-panel,
+  .teacher-dashboard-shell .analyze-section,
+  .panel,
+  .table-panel {
+    padding: 16px;
+  }
+
+  .brand-logo img,
+  .topbar-brand-logo img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .student-dashboard-nav,
+  .teacher-dashboard-nav,
+  .admin-dashboard-nav {
+    padding: 8px 10px;
+  }
+
+  .student-tabs,
+  .teacher-tabs,
+  .admin-tabs {
+    width: calc(100vw - 86px);
+  }
+
+  .student-tab,
+  .teacher-tab,
+  .admin-tab {
+    min-width: 84px;
+    min-height: 46px;
+    font-size: 14px;
+  }
+
+  .dashboard-profile-button,
+  .notification-button {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+  }
+
+  .student-dashboard-content,
+  .teacher-dashboard-content,
+  .admin-dashboard-content {
+    padding: 10px;
+  }
+
+  .stat-card strong,
+  .results-summary-panel .stat-card strong,
+  .session-review-stats-grid .stat-card strong {
+    font-size: clamp(30px, 12vw, 44px);
+  }
+
+  .session-code {
+    font-size: clamp(34px, 15vw, 48px);
+  }
+
+  .qr-code-image,
+  .lobby-qr-action-row .qr-code-image {
+    width: min(100%, 280px);
+  }
+
+  .podium-stage {
+    grid-template-columns: repeat(3, minmax(62px, 1fr));
+    gap: 6px;
+  }
+
+  .podium-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .podium-medal {
+    width: 42px;
+    height: 42px;
+    font-size: 24px;
+  }
+
+  .rank-1 .podium-block {
+    min-height: 150px;
+  }
+
+  .rank-2 .podium-block {
+    min-height: 118px;
+  }
+
+  .rank-3 .podium-block {
+    min-height: 100px;
+  }
+}
+
+@media (pointer: coarse) {
+  button,
+  .primary-button,
+  .secondary-button,
+  .danger-button,
+  .student-tab,
+  .teacher-tab,
+  .admin-tab,
+  .compact-button {
+    min-height: 44px;
+  }
+}
