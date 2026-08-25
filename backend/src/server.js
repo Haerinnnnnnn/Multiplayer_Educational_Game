@@ -829,6 +829,10 @@ app.delete('/api/admin/users/by-email/cleanup', requireAdmin, async (req, res) =
   }
 });
 
-app.listen(port, () => {
-  console.log(`Backend listening on port ${port}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`Backend listening on port ${port}`);
+  });
+}
+
+export default app;
