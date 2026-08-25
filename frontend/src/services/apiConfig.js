@@ -7,4 +7,4 @@ const useDevProxy =
 
 export const backendUrl = useDevProxy
   ? window.location.origin
-  : import.meta.env.VITE_BACKEND_URL;
+  : import.meta.env.VITE_BACKEND_URL || window.location.origin;
