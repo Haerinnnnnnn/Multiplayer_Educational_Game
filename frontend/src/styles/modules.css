@@ -33,7 +33,7 @@
 
 .student-module-filter-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(160px, 1fr));
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(170px, 1fr));
   gap: 12px;
   align-items: end;
 }
@@ -502,7 +502,7 @@
 
 .activity-filter-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(160px, 1fr));
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(170px, 1fr));
   gap: 12px;
   align-items: end;
 }
@@ -879,5 +879,6 @@
 .app-frame .module-info-modal tbody tr:hover {
   background: rgba(96, 165, 250, 0.08);
 }
+
 
 

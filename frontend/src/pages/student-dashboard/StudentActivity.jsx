@@ -43,13 +43,6 @@ function getGameFilterMatch(item, gameFilter) {
   return true;
 }
 
-function getStatusFilterMatch(item, statusFilter) {
-  if (statusFilter === 'ended') return item.sessionStatus === 'ended';
-  if (statusFilter === 'active') return ['waiting', 'live', 'paused'].includes(item.sessionStatus);
-  if (statusFilter === 'closed') return item.sessionStatus === 'closed';
-  return true;
-}
-
 function ActivityCard({ item, onViewResult }) {
   const [expanded, setExpanded] = useState(false);
   const canViewResult = item.sessionId && item.sessionStatus === 'ended' && onViewResult;
@@ -95,7 +88,6 @@ export function StudentActivity({ activity, error, loading, onViewResult }) {
   const [filters, setFilters] = useState({
     gameType: 'all',
     search: '',
-    status: 'all',
     time: 'all',
   });
 
@@ -110,8 +102,7 @@ export function StudentActivity({ activity, error, loading, onViewResult }) {
       return (
         searchMatch &&
         getGameFilterMatch(item, filters.gameType) &&
-        getTimeFilterMatch(item, filters.time) &&
-        getStatusFilterMatch(item, filters.status)
+        getTimeFilterMatch(item, filters.time)
       );
     });
   }, [activity, filters]);
@@ -121,7 +112,7 @@ export function StudentActivity({ activity, error, loading, onViewResult }) {
   }
 
   function resetFilters() {
-    setFilters({ gameType: 'all', search: '', status: 'all', time: 'all' });
+    setFilters({ gameType: 'all', search: '', time: 'all' });
   }
 
   if (loading) return <section className="panel student-dashboard-panel-in">Loading activity...</section>;
@@ -160,15 +151,6 @@ export function StudentActivity({ activity, error, loading, onViewResult }) {
               {Object.entries(TIME_FILTERS).map(([value, filter]) => (
                 <option key={value} value={value}>{filter.label}</option>
               ))}
-            </select>
-          </label>
-          <label>
-            Status
-            <select value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}>
-              <option value="all">All status</option>
-              <option value="ended">Ended</option>
-              <option value="active">Active</option>
-              <option value="closed">Closed</option>
             </select>
           </label>
         </div>
