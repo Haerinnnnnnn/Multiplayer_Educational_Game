@@ -985,3 +985,146 @@
     min-height: 44px;
   }
 }
+
+/* Student module and activity responsive polish */
+@media (max-width: 1024px) {
+  .student-module-filter-grid,
+  .activity-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .student-module-filter-grid label:first-child,
+  .activity-filter-grid label:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .student-module-filter-panel,
+  .activity-filter-panel,
+  .student-module-card,
+  .activity-card {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .student-module-filter-panel,
+  .activity-filter-panel {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .student-module-filter-grid,
+  .activity-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-module-filter-grid label:first-child,
+  .activity-filter-grid label:first-child {
+    grid-column: auto;
+  }
+
+  .student-module-filter-panel .secondary-button,
+  .activity-filter-panel .secondary-button,
+  .student-module-description-toggle {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .student-module-card {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .student-module-card-header {
+    gap: 10px;
+  }
+
+  .student-module-card-header h2,
+  .activity-card-info strong {
+    overflow-wrap: anywhere;
+  }
+
+  .student-request-message textarea {
+    min-height: 110px;
+  }
+
+  .activity-card-main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .activity-score {
+    width: fit-content;
+    justify-items: start;
+  }
+
+  .activity-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 16px 16px;
+  }
+
+  .activity-metrics span {
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+    overflow-wrap: anywhere;
+  }
+
+  .activity-card-actions {
+    padding: 0 16px 16px;
+  }
+
+  .activity-card-actions .secondary-button {
+    width: 100%;
+  }
+
+  .answer-history {
+    padding: 0 16px 16px;
+  }
+
+  .answer-history-row {
+    gap: 10px;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .student-module-filter-panel,
+  .activity-filter-panel,
+  .student-module-card {
+    padding: 14px;
+  }
+
+  .student-module-filter-grid input,
+  .student-module-filter-grid select,
+  .activity-filter-grid input,
+  .activity-filter-grid select {
+    min-height: 46px;
+    padding: 11px 12px;
+    font-size: 15px;
+  }
+
+  .student-module-card-header .visibility-badge,
+  .student-module-card-header .review-badge {
+    align-self: flex-start;
+  }
+
+  .activity-card-main {
+    padding: 14px;
+  }
+
+  .activity-metrics {
+    grid-template-columns: 1fr;
+    padding: 0 14px 14px;
+  }
+
+  .activity-card-actions,
+  .answer-history {
+    padding: 0 14px 14px;
+  }
+}
