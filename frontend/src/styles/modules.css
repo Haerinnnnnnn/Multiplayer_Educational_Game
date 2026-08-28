@@ -482,6 +482,53 @@
   overflow: auto;
 }
 
+.activity-filter-panel {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(165, 180, 252, 0.24);
+  border-radius: 16px;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(45, 212, 191, 0.12), transparent 32%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.74), rgba(49, 46, 129, 0.48));
+  color: #f8fafc;
+  box-shadow: 0 20px 54px rgba(2, 6, 23, 0.24);
+}
+
+.activity-filter-panel h2,
+.activity-filter-panel p {
+  margin: 0;
+}
+
+.activity-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.activity-filter-grid label {
+  display: grid;
+  gap: 8px;
+  color: #cbd5e1;
+  font-weight: 900;
+}
+
+.activity-filter-grid input,
+.activity-filter-grid select {
+  width: 100%;
+  border: 1px solid rgba(147, 197, 253, 0.26);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.56);
+  color: #f8fafc;
+  padding: 13px 14px;
+  font: inherit;
+  font-weight: 800;
+}
+
+.activity-filter-grid input::placeholder {
+  color: #94a3b8;
+}
 .activity-card-main {
   width: 100%;
   min-height: 76px;
@@ -832,4 +879,5 @@
 .app-frame .module-info-modal tbody tr:hover {
   background: rgba(96, 165, 250, 0.08);
 }
+
 
