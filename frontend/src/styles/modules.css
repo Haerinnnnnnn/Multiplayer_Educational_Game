@@ -13,6 +13,82 @@
   background: #ffffff;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
+.student-module-filter-panel {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(165, 180, 252, 0.24);
+  border-radius: 16px;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(45, 212, 191, 0.12), transparent 32%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.74), rgba(49, 46, 129, 0.48));
+  color: #f8fafc;
+  box-shadow: 0 20px 54px rgba(2, 6, 23, 0.24);
+}
+
+.student-module-filter-panel h2,
+.student-module-filter-panel p {
+  margin: 0;
+}
+
+.student-module-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.student-module-filter-grid label {
+  display: grid;
+  gap: 8px;
+  color: #cbd5e1;
+  font-weight: 900;
+}
+
+.student-module-filter-grid input,
+.student-module-filter-grid select {
+  width: 100%;
+  border: 1px solid rgba(147, 197, 253, 0.26);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.56);
+  color: #f8fafc;
+  padding: 13px 14px;
+  font: inherit;
+  font-weight: 800;
+}
+
+.student-module-filter-grid input::placeholder {
+  color: #94a3b8;
+}
+
+.student-module-description-toggle {
+  width: fit-content;
+  border: 1px solid rgba(147, 197, 253, 0.34);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.student-module-description-toggle:hover,
+.student-module-description-toggle:focus-visible {
+  border-color: rgba(45, 212, 191, 0.58);
+  background: rgba(20, 184, 166, 0.18);
+  color: #ccfbf1;
+  transform: translateY(-1px);
+}
+
+.student-module-description {
+  margin: 0;
+  animation: dashboard-panel-in 0.18s ease both;
+}
 
 .student-module-card-header,
 .module-students-header {
@@ -756,3 +832,4 @@
 .app-frame .module-info-modal tbody tr:hover {
   background: rgba(96, 165, 250, 0.08);
 }
+
