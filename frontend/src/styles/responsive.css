@@ -1145,3 +1145,60 @@
     text-align: center;
   }
 }
+
+/* QR Pair Match mobile sizing */
+@media (max-width: 760px) {
+  .qr-pair-game-panel {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .qr-pair-game-panel h2 {
+    font-size: clamp(22px, 7vw, 30px);
+    line-height: 1.12;
+  }
+
+  .qr-pair-game-panel > p {
+    margin: 0;
+  }
+
+  .qr-pair-status-row {
+    gap: 8px;
+  }
+
+  .qr-pair-status-row strong,
+  .qr-pair-status-row span {
+    padding: 7px 11px;
+    font-size: 14px;
+  }
+
+  .qr-pair-scanner-frame {
+    width: min(100%, 300px);
+    max-width: 300px;
+    margin-top: 2px;
+  }
+
+  .answer-holder-qr-wrap {
+    margin: 0 auto;
+  }
+
+  .answer-holder-qr {
+    width: min(100%, 220px);
+  }
+}
+
+@media (max-width: 480px) {
+  .qr-pair-game-panel {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .qr-pair-scanner-frame {
+    width: min(100%, 240px);
+    max-width: 240px;
+  }
+
+  .answer-holder-qr {
+    width: min(100%, 190px);
+  }
+}

@@ -37,6 +37,21 @@ function getQrPairAssignment(session, student) {
   };
 }
 
+function getQrPairScannerBoxSize() {
+  if (typeof window === 'undefined') {
+    return 240;
+  }
+
+  if (window.innerWidth <= 420) {
+    return 170;
+  }
+
+  if (window.innerWidth <= 760) {
+    return 200;
+  }
+
+  return 240;
+}
 function parseAnswerToken(value) {
   const cleanValue = value.trim();
 
@@ -115,7 +130,7 @@ function QrPairScanner({ assignment, onScan, onTimeout, remainingSeconds }) {
           preferredCamera.id,
           {
             fps: 10,
-            qrbox: { width: 240, height: 240 },
+            qrbox: { width: getQrPairScannerBoxSize(), height: getQrPairScannerBoxSize() },
           },
           async (decodedText) => {
             if (active) {
@@ -1080,3 +1095,4 @@ export function GamePanel({
     />
   );
 }
+
