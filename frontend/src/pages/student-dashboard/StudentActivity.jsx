@@ -48,36 +48,39 @@ function ActivityCard({ item, onViewResult }) {
   const canViewResult = item.sessionId && item.sessionStatus === 'ended' && onViewResult;
   return (
     <article className="activity-card">
-      <button className="activity-card-main" type="button" onClick={() => setExpanded(!expanded)}>
+      <button className="activity-card-main" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
         <span className="activity-card-info">
           <strong>{item.moduleTitle}</strong>
           <span className={`history-game-badge activity-game-badge ${getGameTypeClass(item.gameType)}`}>{getGameTypeLabel(item.gameType)}</span>
           <small>Session {item.sessionCode} - {formatDate(item.joinedAt)}</small>
         </span>
         <span className="activity-score">{item.score} pts{item.expGained > 0 && <small>+{item.expGained} EXP</small>}</span>
+        <span className="activity-expand-text">{expanded ? 'Hide Details' : 'Show Details'}</span>
       </button>
-      <div className="activity-metrics">
-        <span>{item.totalAnswers} answers</span><span>{item.correctCount} correct</span><span>{item.wrongCount} wrong</span><span>{item.sessionStatus}</span>{item.levelAfter && <span>Level {item.levelAfter}</span>}
-      </div>
-      <div className="activity-card-actions">
-        <button className="secondary-button" disabled={!canViewResult} type="button" onClick={() => onViewResult(item.sessionId)}>{canViewResult ? 'View Result' : 'Result Available After Session Ends'}</button>
-      </div>
       {expanded && (
-        <div className="answer-history">
-          {item.answers.length || item.qrAttempts?.length ? <>
-            {item.answers.map((answer) => (
-              <div className="answer-history-row" key={answer.id}>
-                <div><strong>{answer.questionText}</strong><p>Your answer: {answer.submittedAnswer}</p><p>Correct answer: {answer.correctAnswer}</p><p>Score earned: {answer.scoreAwarded || 0} pts</p>{answer.explanation && <p>Explanation: {answer.explanation}</p>}</div>
-                <span className={answer.isCorrect ? 'answer-badge correct' : 'answer-badge wrong'}>{answer.isCorrect ? 'Correct' : 'Wrong'}</span>
-              </div>
-            ))}
-            {(item.qrAttempts || []).map((attempt) => (
-              <div className="answer-history-row" key={`qr-${attempt.id}`}>
-                <div><strong>{attempt.questionText}</strong><p>Correct answer: {attempt.correctAnswer}</p><p>Time used: {Number.isFinite(attempt.answeredSeconds) ? `${attempt.answeredSeconds}s` : 'timeout'}</p><p>Wrong scans: {attempt.wrongScanCount}</p><p>Score earned: {attempt.scoreAwarded || 0} pts</p>{attempt.explanation && <p>Explanation: {attempt.explanation}</p>}</div>
-                <span className={attempt.isCorrect ? 'answer-badge correct' : 'answer-badge wrong'}>{attempt.isCorrect ? 'Correct Scan' : 'Timeout'}</span>
-              </div>
-            ))}
-          </> : <p className="muted">No answer details recorded for this session.</p>}
+        <div className="activity-card-details">
+          <div className="activity-metrics">
+            <span>{item.totalAnswers} answers</span><span>{item.correctCount} correct</span><span>{item.wrongCount} wrong</span><span>{item.sessionStatus}</span>{item.levelAfter && <span>Level {item.levelAfter}</span>}
+          </div>
+          <div className="activity-card-actions">
+            <button className="secondary-button" disabled={!canViewResult} type="button" onClick={() => onViewResult(item.sessionId)}>{canViewResult ? 'View Result' : 'Result Available After Session Ends'}</button>
+          </div>
+          <div className="answer-history">
+            {item.answers.length || item.qrAttempts?.length ? <>
+              {item.answers.map((answer) => (
+                <div className="answer-history-row" key={answer.id}>
+                  <div><strong>{answer.questionText}</strong><p>Your answer: {answer.submittedAnswer}</p><p>Correct answer: {answer.correctAnswer}</p><p>Score earned: {answer.scoreAwarded || 0} pts</p>{answer.explanation && <p>Explanation: {answer.explanation}</p>}</div>
+                  <span className={answer.isCorrect ? 'answer-badge correct' : 'answer-badge wrong'}>{answer.isCorrect ? 'Correct' : 'Wrong'}</span>
+                </div>
+              ))}
+              {(item.qrAttempts || []).map((attempt) => (
+                <div className="answer-history-row" key={`qr-${attempt.id}`}>
+                  <div><strong>{attempt.questionText}</strong><p>Correct answer: {attempt.correctAnswer}</p><p>Time used: {Number.isFinite(attempt.answeredSeconds) ? `${attempt.answeredSeconds}s` : 'timeout'}</p><p>Wrong scans: {attempt.wrongScanCount}</p><p>Score earned: {attempt.scoreAwarded || 0} pts</p>{attempt.explanation && <p>Explanation: {attempt.explanation}</p>}</div>
+                  <span className={attempt.isCorrect ? 'answer-badge correct' : 'answer-badge wrong'}>{attempt.isCorrect ? 'Correct Scan' : 'Timeout'}</span>
+                </div>
+              ))}
+            </> : <p className="muted">No answer details recorded for this session.</p>}
+          </div>
         </div>
       )}
     </article>
@@ -85,6 +88,7 @@ function ActivityCard({ item, onViewResult }) {
 }
 
 export function StudentActivity({ activity, error, loading, onViewResult }) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({
     gameType: 'all',
     search: '',
@@ -121,40 +125,54 @@ export function StudentActivity({ activity, error, loading, onViewResult }) {
 
   return (
     <section className="activity-list student-dashboard-panel-in">
-      <div className="activity-filter-panel">
-        <div>
-          <p className="eyebrow">Activity Filter</p>
-          <h2>Find Activity</h2>
-          <p className="muted">Showing {filteredActivity.length} of {activity.length} records.</p>
+      <div className="activity-filter-panel collapsible-filter-panel">
+        <div className="collapsible-filter-header">
+          <div>
+            <p className="eyebrow">Activity Filter</p>
+            <h2>Find Activity</h2>
+            <p className="muted">Showing {filteredActivity.length} of {activity.length} records.</p>
+          </div>
+          <button
+            className="secondary-button"
+            type="button"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((current) => !current)}
+          >
+            {filtersOpen ? 'Hide Filter' : 'Show Filter'}
+          </button>
         </div>
-        <div className="activity-filter-grid">
-          <label>
-            Search
-            <input
-              type="search"
-              value={filters.search}
-              onChange={(event) => updateFilter('search', event.target.value)}
-              placeholder="Module, session code, game"
-            />
-          </label>
-          <label>
-            Game
-            <select value={filters.gameType} onChange={(event) => updateFilter('gameType', event.target.value)}>
-              <option value="all">All games</option>
-              <option value="classic_mcq">Classic MCQ</option>
-              <option value="qr_pair_match">QR Pair Match</option>
-            </select>
-          </label>
-          <label>
-            Time
-            <select value={filters.time} onChange={(event) => updateFilter('time', event.target.value)}>
-              {Object.entries(TIME_FILTERS).map(([value, filter]) => (
-                <option key={value} value={value}>{filter.label}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <button className="secondary-button" type="button" onClick={resetFilters}>Clear Filter</button>
+        {filtersOpen && (
+          <div className="collapsible-filter-body">
+            <div className="activity-filter-grid">
+              <label>
+                Search
+                <input
+                  type="search"
+                  value={filters.search}
+                  onChange={(event) => updateFilter('search', event.target.value)}
+                  placeholder="Module, session code, game"
+                />
+              </label>
+              <label>
+                Game
+                <select value={filters.gameType} onChange={(event) => updateFilter('gameType', event.target.value)}>
+                  <option value="all">All games</option>
+                  <option value="classic_mcq">Classic MCQ</option>
+                  <option value="qr_pair_match">QR Pair Match</option>
+                </select>
+              </label>
+              <label>
+                Time
+                <select value={filters.time} onChange={(event) => updateFilter('time', event.target.value)}>
+                  {Object.entries(TIME_FILTERS).map(([value, filter]) => (
+                    <option key={value} value={value}>{filter.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button className="secondary-button" type="button" onClick={resetFilters}>Clear Filter</button>
+          </div>
+        )}
       </div>
 
       {filteredActivity.map((item) => <ActivityCard item={item} key={item.id} onViewResult={onViewResult} />)}

@@ -53,6 +53,7 @@ function getAccessFilterMatch(module, accessFilter) {
 export function StudentModules({ modules, onJoinPublic, onRequestPrivate, loading, error }) {
   const [requestMessages, setRequestMessages] = useState({});
   const [expandedDescriptions, setExpandedDescriptions] = useState({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({
     access: 'all',
     created: 'all',
@@ -90,51 +91,65 @@ export function StudentModules({ modules, onJoinPublic, onRequestPrivate, loadin
 
   return (
     <section className="student-module-list student-dashboard-panel-in">
-      <div className="student-module-filter-panel">
-        <div>
-          <p className="eyebrow">Module Filter</p>
-          <h2>Find Modules</h2>
-          <p className="muted">Showing {filteredModules.length} of {modules.length} modules.</p>
+      <div className="student-module-filter-panel collapsible-filter-panel">
+        <div className="collapsible-filter-header">
+          <div>
+            <p className="eyebrow">Module Filter</p>
+            <h2>Find Modules</h2>
+            <p className="muted">Showing {filteredModules.length} of {modules.length} modules.</p>
+          </div>
+          <button
+            className="secondary-button"
+            type="button"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((current) => !current)}
+          >
+            {filtersOpen ? 'Hide Filter' : 'Show Filter'}
+          </button>
         </div>
-        <div className="student-module-filter-grid">
-          <label>
-            Search
-            <input
-              type="search"
-              value={filters.search}
-              onChange={(event) => updateFilter('search', event.target.value)}
-              placeholder="Module name, code, description"
-            />
-          </label>
-          <label>
-            Created
-            <select value={filters.created} onChange={(event) => updateFilter('created', event.target.value)}>
-              {Object.entries(CREATED_FILTERS).map(([value, filter]) => (
-                <option key={value} value={value}>{filter.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Join Status
-            <select value={filters.joined} onChange={(event) => updateFilter('joined', event.target.value)}>
-              <option value="all">All modules</option>
-              <option value="joined">Joined</option>
-              <option value="not_joined">Not joined</option>
-              <option value="pending">Request pending</option>
-              <option value="rejected">Request rejected</option>
-            </select>
-          </label>
-          <label>
-            Access
-            <select value={filters.access} onChange={(event) => updateFilter('access', event.target.value)}>
-              <option value="all">All access</option>
-              <option value="public">Public</option>
-              <option value="private">Private</option>
-              <option value="locked">Locked</option>
-            </select>
-          </label>
-        </div>
-        <button className="secondary-button" type="button" onClick={resetFilters}>Clear Filter</button>
+        {filtersOpen && (
+          <div className="collapsible-filter-body">
+            <div className="student-module-filter-grid">
+              <label>
+                Search
+                <input
+                  type="search"
+                  value={filters.search}
+                  onChange={(event) => updateFilter('search', event.target.value)}
+                  placeholder="Module name, code, description"
+                />
+              </label>
+              <label>
+                Created
+                <select value={filters.created} onChange={(event) => updateFilter('created', event.target.value)}>
+                  {Object.entries(CREATED_FILTERS).map(([value, filter]) => (
+                    <option key={value} value={value}>{filter.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Join Status
+                <select value={filters.joined} onChange={(event) => updateFilter('joined', event.target.value)}>
+                  <option value="all">All modules</option>
+                  <option value="joined">Joined</option>
+                  <option value="not_joined">Not joined</option>
+                  <option value="pending">Request pending</option>
+                  <option value="rejected">Request rejected</option>
+                </select>
+              </label>
+              <label>
+                Access
+                <select value={filters.access} onChange={(event) => updateFilter('access', event.target.value)}>
+                  <option value="all">All access</option>
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                  <option value="locked">Locked</option>
+                </select>
+              </label>
+            </div>
+            <button className="secondary-button" type="button" onClick={resetFilters}>Clear Filter</button>
+          </div>
+        )}
       </div>
 
       {filteredModules.map((module) => {

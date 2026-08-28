@@ -1128,3 +1128,20 @@
     padding: 0 14px 14px;
   }
 }
+
+@media (max-width: 760px) {
+  .collapsible-filter-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .collapsible-filter-header .secondary-button,
+  .collapsible-filter-body > .secondary-button {
+    width: 100%;
+  }
+
+  .activity-expand-text {
+    width: 100%;
+    text-align: center;
+  }
+}

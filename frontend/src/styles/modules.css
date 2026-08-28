@@ -529,6 +529,51 @@
 .activity-filter-grid input::placeholder {
   color: #94a3b8;
 }
+
+.collapsible-filter-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.collapsible-filter-header > div {
+  min-width: 0;
+}
+
+.collapsible-filter-header .secondary-button {
+  flex: 0 0 auto;
+}
+
+.collapsible-filter-body {
+  display: grid;
+  gap: 14px;
+  animation: dashboard-panel-in 0.18s ease both;
+}
+
+.activity-card-details {
+  display: grid;
+  gap: 0;
+  animation: dashboard-panel-in 0.18s ease both;
+}
+
+.activity-expand-text {
+  align-self: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.student-dashboard-shell .activity-expand-text {
+  background: rgba(96, 165, 250, 0.18);
+  color: #93c5fd;
+}
 .activity-card-main {
   width: 100%;
   min-height: 76px;
@@ -879,6 +924,7 @@
 .app-frame .module-info-modal tbody tr:hover {
   background: rgba(96, 165, 250, 0.08);
 }
+
 
 
 
