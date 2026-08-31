@@ -187,6 +187,7 @@ function toPublicUser(row, role) {
   };
 }
 
+
 function validateAdminCreateUser(body) {
   const role = body?.role;
   const email = body?.email?.trim().toLowerCase() || '';

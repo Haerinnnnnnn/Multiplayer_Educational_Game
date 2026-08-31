@@ -411,7 +411,7 @@ export function AdminUsersTab({
               <th>Email</th>
               <th>Role</th>
               <th>Status</th>
-              <th>Approval</th>
+              {activeRole === 'teacher' && <th>Approval</th>}
               <th>School</th>
               {activeRole === 'student' && <th>Grade</th>}
               {activeRole === 'student' && <th>Course</th>}
@@ -437,17 +437,15 @@ export function AdminUsersTab({
                     {user.presenceStatus === 'online' ? 'Online' : 'Offline'}
                   </span>
                 </td>
-                <td>
-                  <span
-                    className={`admin-approval-badge ${getApprovalStatusClass(
-                      user.role === 'teacher' ? user.approvalStatus : user.emailStatus,
-                    )}`}
-                  >
-                    {user.role === 'teacher'
-                      ? getApprovalStatusLabel(user.approvalStatus)
-                      : getApprovalStatusLabel(user.emailStatus)}
-                  </span>
-                </td>
+                {activeRole === 'teacher' && (
+                  <td>
+                    <span
+                      className={`admin-approval-badge ${getApprovalStatusClass(user.approvalStatus)}`}
+                    >
+                      {getApprovalStatusLabel(user.approvalStatus)}
+                    </span>
+                  </td>
+                )}
                 <td>{user.schoolName}</td>
                 {activeRole === 'student' && <td>{user.grade}</td>}
                 {activeRole === 'student' && <td>{user.course}</td>}
