@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BrandLogo } from '../components/BrandLogo.jsx';
 import { ChangePasswordForm } from '../components/ChangePasswordForm.jsx';
 import { DashboardBackground } from '../components/DashboardBackground.jsx';
-import { Feedback, Stat } from '../components/Common.jsx';
 import { ProfileDetailsForm } from '../components/ProfileDetailsForm.jsx';
 import { fetchStudentExperienceLeaderboard } from '../services/experienceService.js';
 import { fetchTeacherApprovalState, queueTeacherApprovalAfterEmailConfirmation } from '../services/authService.js';

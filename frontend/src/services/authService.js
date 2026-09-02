@@ -116,48 +116,6 @@ async function fetchAccount(userId) {
   throw new Error('Account profile not found.');
 }
 
-async function createStudent(user, profile) {
-  const { data, error } = await supabase
-    .from('students')
-    .insert({
-      id: user.id,
-      name: profile.name.trim(),
-      email: profile.email.trim().toLowerCase(),
-      birthday: profile.birthday,
-      school_name: profile.schoolName.trim(),
-      grade: profile.grade.trim(),
-      course: profile.course.trim(),
-    })
-    .select('*')
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return toStudentUser(data);
-}
-
-async function createTeacher(user, profile) {
-  const { data, error } = await supabase
-    .from('teachers')
-    .insert({
-      id: user.id,
-      name: profile.name.trim(),
-      email: profile.email.trim().toLowerCase(),
-      birthday: profile.birthday,
-      school_name: profile.schoolName.trim(),
-    })
-    .select('*')
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return toTeacherUser(data);
-}
-
 async function registerAccount(profile, role) {
   const email = profile.email.trim().toLowerCase();
   const response = await fetch(`${backendUrl}/api/auth/register`, {

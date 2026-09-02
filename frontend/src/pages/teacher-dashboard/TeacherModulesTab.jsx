@@ -1,5 +1,4 @@
 import { EmptyState, Feedback } from '../../components/Common.jsx';
-import { getReviewStatusLabel } from './teacherDashboardHelpers.js';
 
 export function TeacherModulesTab({
   feedback,

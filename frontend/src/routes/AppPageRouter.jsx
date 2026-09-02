@@ -6,12 +6,8 @@ import {
   QuestionDeleteConfirmDialog,
 } from '../components/dialogs/AppDialogs.jsx';
 import { AdminDashboardPage } from '../pages/AdminDashboardPage.jsx';
-import { CreateSessionPage } from '../pages/CreateSessionPage.jsx';
 import { LiveLobbyPage } from '../pages/LiveLobbyPage.jsx';
 import { LogoutLoadingPage } from '../pages/LogoutLoadingPage.jsx';
-import { ModuleManagementPage } from '../pages/ModuleManagementPage.jsx';
-import { QuestionBankPage } from '../pages/QuestionBankPage.jsx';
-import { ResultHistoryPage } from '../pages/ResultHistoryPage.jsx';
 import { RoleSelectionPage } from '../pages/RoleSelectionPage.jsx';
 import { SessionClosedLoadingPage } from '../pages/SessionClosedLoadingPage.jsx';
 import { SessionResultsPage } from '../pages/SessionResultsPage.jsx';
@@ -23,7 +19,6 @@ import { StudentWaitingPage } from '../pages/StudentWaitingPage.jsx';
 import { TeacherControlPage } from '../pages/TeacherControlPage.jsx';
 import { TeacherDashboardPage } from '../pages/TeacherDashboardPage.jsx';
 import { TeacherSessionReviewPage } from '../pages/TeacherSessionReviewPage.jsx';
-import { UserManagementPage } from '../pages/UserManagementPage.jsx';
 import { isDashboardPage, isPublicPage, isSessionPage } from './publicRoutes.js';
 import { PublicArea } from './PublicArea.jsx';
 
@@ -33,7 +28,6 @@ export function AppPageRouter({ app }) {
     activeSession,
     addModule,
     addQuestion,
-    addUser,
     authChecked,
     backFromSessionResults,
     backLogoutPromptOpen,
@@ -51,7 +45,6 @@ export function AppPageRouter({ app }) {
     currentUser,
     deleteModule,
     deleteQuestion,
-    deleteUser,
     editingQuestionId,
     editModuleDetails,
     editQuestion,
@@ -104,7 +97,6 @@ export function AppPageRouter({ app }) {
     setQuestionForm,
     setSessionForm,
     setStudentSessionLeavePromptOpen,
-    setUserForm,
     startGame,
     stats,
     student,
@@ -117,7 +109,6 @@ export function AppPageRouter({ app }) {
     toggleModuleVisibility,
     updateCurrentProfile,
     updateCurrentStudentExperience,
-    userForm,
     users,
   } = app;
 
@@ -262,77 +253,6 @@ export function AppPageRouter({ app }) {
     );
   }
 
-  if (page === 'modules') {
-    return (
-      <>
-        <ModuleManagementPage
-          feedback={feedback}
-          moduleForm={moduleForm}
-          modules={modules}
-          onAddModule={addModule}
-          onBack={() => go('teacher-dashboard')}
-          onDeleteModule={deleteModule}
-          onLogout={logout}
-          onModuleFormChange={setModuleForm}
-        />
-        <ModuleDeleteConfirmDialog
-          isBusy={moduleDeleteBusy}
-          module={moduleDeleteConfirm}
-          onCancel={() => setModuleDeleteConfirm(null)}
-          onConfirm={confirmDeleteModule}
-        />
-      </>
-    );
-  }
-
-  if (page === 'questions') {
-    return (
-      <>
-        <QuestionBankPage
-          feedback={feedback}
-          modules={modules}
-          onAddQuestion={addQuestion}
-          onBack={() => go('teacher-dashboard')}
-          onDeleteQuestion={deleteQuestion}
-          onEditQuestion={editQuestion}
-          onCancelQuestionEdit={resetQuestionForm}
-          onImportQuestions={importQuestions}
-          onLogout={logout}
-          onQuestionFormChange={setQuestionForm}
-          onSelectedModuleChange={selectModule}
-          questionForm={questionForm}
-          editingQuestionId={editingQuestionId}
-          selectedModule={selectedModule}
-          selectedModuleId={selectedModuleId}
-        />
-        <QuestionDeleteConfirmDialog
-          isBusy={questionDeleteBusy}
-          target={questionDeleteConfirm}
-          onCancel={() => setQuestionDeleteConfirm(null)}
-          onConfirm={confirmDeleteQuestion}
-        />
-      </>
-    );
-  }
-
-  if (page === 'create-session') {
-    return (
-      <CreateSessionPage
-        feedback={feedback}
-        modules={modules}
-        onBack={() => go('teacher-dashboard')}
-        onCreateSession={createSession}
-        onLogout={logout}
-        ongoingSession={sessions.find((session) =>
-          ['lobby', 'live', 'active'].includes(String(session.status || '').toLowerCase()) &&
-          (!session.teacherId || session.teacherId === currentUser?.id),
-        )}
-        onSessionFormChange={setSessionForm}
-        sessionForm={sessionForm}
-      />
-    );
-  }
-
   if (page === 'live-lobby') {
     return (
       <LiveLobbyPage
@@ -431,18 +351,6 @@ export function AppPageRouter({ app }) {
     );
   }
 
-  if (page === 'result-history') {
-    return (
-      <ResultHistoryPage
-        modules={modules}
-        onBack={() => go('teacher-dashboard')}
-        onLogout={logout}
-        onOpenResults={openSessionResults}
-        sessions={sessions}
-      />
-    );
-  }
-
   if (page === 'admin-dashboard') {
     return (
       <>
@@ -460,21 +368,6 @@ export function AppPageRouter({ app }) {
           onConfirm={confirmBackLogoutPrompt}
         />
       </>
-    );
-  }
-
-  if (page === 'user-management') {
-    return (
-      <UserManagementPage
-        feedback={feedback}
-        onAddUser={addUser}
-        onBack={() => go('admin-dashboard')}
-        onDeleteUser={deleteUser}
-        onLogout={logout}
-        onUserFormChange={setUserForm}
-        userForm={userForm}
-        users={users}
-      />
     );
   }
 

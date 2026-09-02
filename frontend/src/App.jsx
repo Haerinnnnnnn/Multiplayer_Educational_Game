@@ -3,7 +3,6 @@ import { initialModules, initialUsers } from './data/seedData.js';
 import { AppPageRouter } from './routes/AppPageRouter.jsx';
 import { fetchStudentExperience } from './services/experienceService.js';
 import { useAppNavigation } from './hooks/useAppNavigation.js';
-import { useAdminUserActions } from './hooks/useAdminUserActions.js';
 import { useAuthActions } from './hooks/useAuthActions.js';
 import { useAuthRestore } from './hooks/useAuthRestore.js';
 import { useBackPromptActions } from './hooks/useBackPromptActions.js';
@@ -73,10 +72,6 @@ export default function App() {
     setBackLogoutPromptOpen,
     setFeedback,
     setStudentSessionLeavePromptOpen,
-  });
-  const { addUser, deleteUser, setUserForm, userForm } = useAdminUserActions({
-    setFeedback,
-    setUsers,
   });
   const activeSession = sessions.find((session) => session.id === activeSessionId);
   const activeModule = modules.find((module) => module.id === activeSession?.moduleId);
@@ -442,7 +437,6 @@ export default function App() {
         activeSession,
         addModule,
         addQuestion,
-        addUser,
         authChecked,
         backFromSessionResults,
         backLogoutPromptOpen,
@@ -460,7 +454,6 @@ export default function App() {
         currentUser,
         deleteModule,
         deleteQuestion,
-        deleteUser,
         editingQuestionId,
         editModuleDetails,
         editQuestion,
@@ -513,7 +506,6 @@ export default function App() {
         setQuestionForm,
         setSessionForm,
         setStudentSessionLeavePromptOpen,
-        setUserForm,
         startGame,
         stats,
         student,
@@ -526,7 +518,6 @@ export default function App() {
         toggleModuleVisibility,
         updateCurrentProfile,
         updateCurrentStudentExperience,
-        userForm,
         users,
       }}
     />
