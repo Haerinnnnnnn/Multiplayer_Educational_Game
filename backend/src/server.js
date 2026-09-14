@@ -528,6 +528,66 @@ app.post('/api/presence/offline', async (req, res) => {
   }
 });
 
+app.get('/api/student/modules', async (req, res) => {
+  const token = getBearerToken(req);
+
+  if (!token) {
+    res.status(401).json({ error: 'Missing authorization token.' });
+    return;
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !authData.user) {
+      res.status(401).json({ error: 'Invalid authorization token.' });
+      return;
+    }
+
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from('students')
+      .select('id')
+      .eq('id', authData.user.id)
+      .maybeSingle();
+
+    if (studentError) {
+      throw studentError;
+    }
+
+    if (!student) {
+      res.status(403).json({ error: 'Student access required.' });
+      return;
+    }
+
+    const [modulesResult, teachersResult] = await Promise.all([
+      supabaseAdmin
+        .from('modules')
+        .select('id, module_code, teacher_id, title, description, visibility, is_deleted, is_locked, created_at, updated_at')
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false }),
+      supabaseAdmin.from('teachers').select('id, name'),
+    ]);
+
+    if (modulesResult.error) {
+      throw modulesResult.error;
+    }
+
+    if (teachersResult.error) {
+      throw teachersResult.error;
+    }
+
+    const teacherMap = new Map((teachersResult.data || []).map((teacher) => [teacher.id, teacher.name]));
+    const modules = (modulesResult.data || []).map((module) => ({
+      ...module,
+      teacher_name: teacherMap.get(module.teacher_id) || 'Unknown teacher',
+    }));
+
+    res.json({ modules });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
   let profile;
   let authUser = null;
@@ -872,3 +932,4 @@ if (!process.env.VERCEL) {
 }
 
 export default app;
+

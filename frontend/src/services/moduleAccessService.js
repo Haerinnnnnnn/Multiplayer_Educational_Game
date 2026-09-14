@@ -1,3 +1,4 @@
+import { backendUrl } from './apiConfig.js';
 import { supabase } from './supabaseClient.js';
 
 function toStudentAccess(row) {
@@ -163,7 +164,38 @@ export async function reviewModuleJoinRequest({ requestId, status, teacherRespon
   }
 }
 
+async function fetchStudentModuleRowsFromBackend() {
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !sessionData.session?.access_token) {
+      return null;
+    }
+
+    const response = await fetch(`${backendUrl}/api/student/modules`, {
+      headers: {
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json();
+    return { data: payload.modules || [], error: null };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchStudentModuleRows(studentId) {
+  const backendResult = await fetchStudentModuleRowsFromBackend();
+
+  if (backendResult) {
+    return backendResult;
+  }
+
   const modulesResult = await supabase.rpc('get_student_modules_with_teachers', {
     target_student_id: studentId,
   });
@@ -245,4 +277,5 @@ export async function requestPrivateModule({ moduleId, studentId, message }) {
     throw new Error(error.message);
   }
 }
+
 
