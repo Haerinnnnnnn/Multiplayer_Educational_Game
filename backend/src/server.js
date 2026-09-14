@@ -153,23 +153,15 @@ async function detachTeacherReferences(teacherId, deletedBy = null) {
 
   const deletedAt = new Date().toISOString();
   const moduleUpdate = {
-    teacher_id: null,
     is_deleted: true,
     deleted_at: deletedAt,
     deleted_by: deletedBy,
   };
 
-  const detachOperations = [
-    supabaseAdmin.from('sessions').update({ teacher_id: null }).eq('teacher_id', teacherId),
-    supabaseAdmin.from('modules').update(moduleUpdate).eq('teacher_id', teacherId),
-    supabaseAdmin.from('chapters').update({ teacher_id: null }).eq('teacher_id', teacherId),
-    supabaseAdmin.from('questions').update({ teacher_id: null }).eq('teacher_id', teacherId),
-    supabaseAdmin.from('module_review_requests').update({ teacher_id: null }).eq('teacher_id', teacherId),
-    supabaseAdmin.from('module_members').update({ added_by_teacher_id: null }).eq('added_by_teacher_id', teacherId),
-  ];
-
-  const results = await Promise.all(detachOperations);
-  const error = results.find((result) => result.error)?.error;
+  const { error } = await supabaseAdmin
+    .from('modules')
+    .update(moduleUpdate)
+    .eq('teacher_id', teacherId);
 
   if (error) {
     throw error;
@@ -883,6 +875,7 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
       await detachTeacherReferences(userId, req.adminUser.id);
     }
 
+    await deletePublicRows({ userId, email: publicUser.email });
     const deletedAuthIds = await deleteAuthUsersByEmail(publicUser.email, req.adminUser.id);
     await deleteAuthUser(userId);
     await deletePublicRows({ userId, email: publicUser.email });
@@ -932,4 +925,6 @@ if (!process.env.VERCEL) {
 }
 
 export default app;
+
+
 
