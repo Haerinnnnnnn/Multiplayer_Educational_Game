@@ -145,6 +145,28 @@ async function deleteAuthUsersByEmail(email, protectedUserId) {
   return matchedUsers.map((user) => user.id);
 }
 
+
+async function detachTeacherReferences(teacherId) {
+  if (!teacherId) {
+    return;
+  }
+
+  const detachOperations = [
+    supabaseAdmin.from('sessions').update({ teacher_id: null }).eq('teacher_id', teacherId),
+    supabaseAdmin.from('modules').update({ teacher_id: null }).eq('teacher_id', teacherId),
+    supabaseAdmin.from('chapters').update({ teacher_id: null }).eq('teacher_id', teacherId),
+    supabaseAdmin.from('questions').update({ teacher_id: null }).eq('teacher_id', teacherId),
+    supabaseAdmin.from('module_review_requests').update({ teacher_id: null }).eq('teacher_id', teacherId),
+    supabaseAdmin.from('module_members').update({ added_by_teacher_id: null }).eq('added_by_teacher_id', teacherId),
+  ];
+
+  const results = await Promise.all(detachOperations);
+  const error = results.find((result) => result.error)?.error;
+
+  if (error) {
+    throw error;
+  }
+}
 function toPublicUser(row, role) {
   if (role === 'student') {
     return {
@@ -788,6 +810,11 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
 
   try {
     const publicUser = await findPublicUser(userId, fallback);
+
+    if (publicUser.role === 'teacher' || fallback.role === 'teacher') {
+      await detachTeacherReferences(userId);
+    }
+
     const deletedAuthIds = await deleteAuthUsersByEmail(publicUser.email, req.adminUser.id);
     await deleteAuthUser(userId);
     await deletePublicRows({ userId, email: publicUser.email });
