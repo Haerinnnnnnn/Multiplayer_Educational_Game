@@ -65,7 +65,7 @@ export function StudentModules({ modules, onJoinPublic, onRequestPrivate, loadin
     const searchText = filters.search.trim().toLowerCase();
 
     return modules.filter((module) => {
-      const searchMatch = !searchText || [module.moduleCode, module.title, module.description]
+      const searchMatch = !searchText || [module.moduleCode, module.title, module.description, module.teacherName]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(searchText));
 
@@ -162,7 +162,11 @@ export function StudentModules({ modules, onJoinPublic, onRequestPrivate, loadin
         return (
           <article className={module.isLocked ? 'student-module-card locked-module-card' : 'student-module-card'} key={module.id}>
             <div className="student-module-card-header">
-              <div><p className="eyebrow">{module.moduleCode || `MOD${String(module.id).padStart(3, '0')}`}</p><h2 className={module.isLocked ? 'locked-module-title' : ''}>{module.title}</h2></div>
+              <div>
+                <p className="eyebrow">{module.moduleCode || `MOD${String(module.id).padStart(3, '0')}`}</p>
+                <h2 className={module.isLocked ? 'locked-module-title' : ''}>{module.title}</h2>
+                <p className="student-module-creator">Created by <span>{module.teacherName || 'Unknown teacher'}</span></p>
+              </div>
               <ModuleAccessBadge module={module} />
             </div>
             <button
@@ -195,3 +199,4 @@ export function StudentModules({ modules, onJoinPublic, onRequestPrivate, loadin
     </section>
   );
 }
+

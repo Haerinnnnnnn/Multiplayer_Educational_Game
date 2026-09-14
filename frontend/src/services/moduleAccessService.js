@@ -38,6 +38,7 @@ function toStudentModule(row, membershipMap, requestMap) {
     id: row.id,
     moduleCode: row.module_code,
     teacherId: row.teacher_id,
+    teacherName: row.teacher_name || 'Unknown teacher',
     title: row.title,
     description: row.description || 'No description yet.',
     visibility: row.visibility || 'private',
@@ -162,13 +163,32 @@ export async function reviewModuleJoinRequest({ requestId, status, teacherRespon
   }
 }
 
+async function fetchStudentModuleRows(studentId) {
+  const modulesResult = await supabase.rpc('get_student_modules_with_teachers', {
+    target_student_id: studentId,
+  });
+
+  if (!modulesResult.error) {
+    return modulesResult;
+  }
+
+  const message = modulesResult.error.message || '';
+  const missingFunction = modulesResult.error.code === '42883' || message.includes('get_student_modules_with_teachers');
+
+  if (!missingFunction) {
+    return modulesResult;
+  }
+
+  return supabase.from('modules').select('*').eq('is_deleted', false).order('created_at', { ascending: false });
+}
+
 export async function fetchStudentModules(studentId) {
   if (!studentId) {
     return [];
   }
 
   const [modulesResult, membersResult, requestsResult] = await Promise.all([
-    supabase.from('modules').select('*').eq('is_deleted', false).order('created_at', { ascending: false }),
+    fetchStudentModuleRows(studentId),
     supabase.from('module_members').select('*').eq('student_id', studentId),
     supabase.from('module_join_requests').select('*').eq('student_id', studentId),
   ]);
@@ -225,3 +245,4 @@ export async function requestPrivateModule({ moduleId, studentId, message }) {
     throw new Error(error.message);
   }
 }
+

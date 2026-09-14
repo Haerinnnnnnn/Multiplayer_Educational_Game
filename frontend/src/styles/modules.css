@@ -115,6 +115,19 @@
   margin: 0;
 }
 
+.student-dashboard-shell .student-module-card .student-module-creator,
+.student-module-creator {
+  margin: 7px 0 0;
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.student-module-creator span {
+  color: #93c5fd;
+}
+
 .student-request-message {
   display: grid;
   gap: 8px;
@@ -924,6 +937,7 @@
 .app-frame .module-info-modal tbody tr:hover {
   background: rgba(96, 165, 250, 0.08);
 }
+
 
 
 
