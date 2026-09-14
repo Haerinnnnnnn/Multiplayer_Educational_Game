@@ -45,10 +45,11 @@ export class QrPairAnalysis extends AnalysisStrategy {
           status: assignment.status,
           seconds: Number.isFinite(assignment.answeredSeconds) ? assignment.answeredSeconds : null,
           score: assignment.scoreAwarded || 0,
-          wrongScans: Number(assignment.wrongScans || assignment.wrong_scan_count || 0),
+          wrongScans: Number(assignment.wrongScans || assignment.wrongScanCount || assignment.wrong_scan_count || 0),
         };
       });
   }
 }
 
 export default QrPairAnalysis;
+
